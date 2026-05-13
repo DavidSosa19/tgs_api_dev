@@ -1,0 +1,7 @@
+# application.yml.example — copy to application.yml and fill in values
+app:
+  jwt:
+    secret: <base64-encoded-hs512-secret>   # openssl rand -base64 64
+    expiration-ms: 3600000
+    refresh-expiration-ms: 86400000
+    issuer: tgs_dev

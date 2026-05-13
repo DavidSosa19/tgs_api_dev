@@ -1,0 +1,40 @@
+# ── Compiled output ───────────────────────────────────────────────────────────
+target/
+*.class
+*.jar
+*.war
+
+# ── Maven ─────────────────────────────────────────────────────────────────────
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.code-workspace
+.settings/
+.project
+.classpath
+
+# ── Environment & secrets ─────────────────────────────────────────────────────
+.env
+.env.*
+*.env
+src/main/resources/application.properties
+src/main/resources/application.yml
+application-local.properties
+application-local.yml
+application-secret.properties
+application-secret.yml
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
