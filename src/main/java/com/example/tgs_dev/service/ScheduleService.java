@@ -46,6 +46,10 @@ public class ScheduleService {
     public List<Schedule> findAllById(List<Integer> ids){
         return scheduleRepository.findAllById(ids);
     }
+
+    public List<Schedule> saveAll(List<Schedule> schedules) {
+        return scheduleRepository.saveAll(schedules);
+    }
     public void calculateVehicleSchedules(List<VehicleAssignment> assignments){
         List<Schedule> schedules = new ArrayList<>();
         for(VehicleAssignment assignment: assignments){

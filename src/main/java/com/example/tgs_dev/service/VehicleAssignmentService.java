@@ -4,10 +4,13 @@ import com.example.tgs_dev.entity.*;
 import com.example.tgs_dev.repository.VehicleAssignmentRepository;
 import com.example.tgs_dev.repository.specification.CommonSpecifications;
 import jakarta.transaction.Transactional;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -78,5 +81,25 @@ public class VehicleAssignmentService {
                 .toList();
 
         return vehicleAssignmentRepository.saveAll(assignments);
+    }
+
+    public List<VehicleAssignment> findByRouteOperationAndRowOrderGreaterThan(RouteOperation routeOperation, int rowOrder) {
+        Specification<VehicleAssignment> byOperation = CommonSpecifications.fieldEquals("routeOperation", routeOperation);
+        Specification<VehicleAssignment> byRowOrder = CommonSpecifications.fieldGreaterThan("rowOrder", rowOrder);
+        return vehicleAssignmentRepository.findAll(byOperation.and(byRowOrder));
+    }
+
+    public Optional<VehicleAssignment> findLastByRouteOperation(RouteOperation routeOperation) {
+        return vehicleAssignmentRepository.findAll(
+                CommonSpecifications.fieldEquals("routeOperation", routeOperation)
+        ).stream().max(Comparator.comparing(VehicleAssignment::getRowOrder));
+    }
+
+    @Transactional
+    public void softDeleteWithReason(VehicleAssignment assignment, String reason) {
+        assignment.setActive(false);
+        assignment.setRemovedAt(LocalDateTime.now());
+        assignment.setRemovalReason(reason);
+        vehicleAssignmentRepository.save(assignment);
     }
 }

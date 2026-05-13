@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
+import org.springframework.data.jpa.domain.Specification;
+
 @Service
 public class RouteOperationService {
 
@@ -41,6 +43,12 @@ public class RouteOperationService {
 
     public List<RouteOperation> findAllByDate(LocalDate date){
         return routeOperationRepository.findAll(CommonSpecifications.fieldEquals("serviceDate",date));
+    }
+
+    public Optional<RouteOperation> findByRouteAndDate(Route route, LocalDate date) {
+        Specification<RouteOperation> byRoute = CommonSpecifications.fieldEquals("route", route);
+        Specification<RouteOperation> byDate = CommonSpecifications.fieldEquals("serviceDate", date);
+        return routeOperationRepository.findOne(byRoute.and(byDate));
     }
 
     @Transactional

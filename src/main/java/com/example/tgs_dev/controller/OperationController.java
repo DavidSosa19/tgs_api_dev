@@ -2,9 +2,12 @@ package com.example.tgs_dev.controller;
 
 import com.example.tgs_dev.controller.response.ApiResponse;
 import com.example.tgs_dev.controller.request.InitOperationRequest;
+import com.example.tgs_dev.controller.request.RemoveVehicleRequest;
 import com.example.tgs_dev.entity.RouteOperation;
 import com.example.tgs_dev.service.OperationOrchestratorService;
 import com.example.tgs_dev.service.RouteOperationService;
+import com.example.tgs_dev.service.VehicleRemovalService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,10 +21,14 @@ public class OperationController {
 
     private final OperationOrchestratorService orchestratorService;
     private final RouteOperationService routeOperationService;
+    private final VehicleRemovalService vehicleRemovalService;
 
-    public OperationController(OperationOrchestratorService orchestratorService, RouteOperationService routeOperationService) {
+    public OperationController(OperationOrchestratorService orchestratorService,
+                               RouteOperationService routeOperationService,
+                               VehicleRemovalService vehicleRemovalService) {
         this.orchestratorService = orchestratorService;
         this.routeOperationService = routeOperationService;
+        this.vehicleRemovalService = vehicleRemovalService;
     }
 
     @PostMapping
@@ -53,5 +60,11 @@ public class OperationController {
     public ResponseEntity<ApiResponse<Void>> deleteAll(@PathVariable LocalDate date) {
         routeOperationService.softDeleteAllByDate(date);
         return ResponseEntity.ok(ApiResponse.ok("operations.all.deleted.success", null));
+    }
+
+    @PostMapping("/vehicle/remove")
+    public ResponseEntity<ApiResponse<Void>> removeVehicle(@RequestBody @Valid RemoveVehicleRequest request) {
+        vehicleRemovalService.handleRemoval(request);
+        return ResponseEntity.ok(ApiResponse.ok("vehicle.removed.success", null));
     }
 }

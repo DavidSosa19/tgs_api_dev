@@ -4,10 +4,12 @@ import com.example.tgs_dev.controller.exception.ResourceNotFoundException;
 import com.example.tgs_dev.entity.Route;
 import com.example.tgs_dev.repository.RouteRepository;
 import com.example.tgs_dev.repository.filter.FilterRequest;
+import com.example.tgs_dev.repository.specification.CommonSpecifications;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class RouteService {
@@ -29,6 +31,10 @@ public class RouteService {
 
     public List<Route> findAll() {
         return routeRepository.findAllByOrderByRouteNumberAsc();
+    }
+
+    public Optional<Route> findByNumber(String routeNumber) {
+        return routeRepository.findOne(CommonSpecifications.fieldEquals("routeNumber", routeNumber));
     }
 
     public void delete(Route route){
