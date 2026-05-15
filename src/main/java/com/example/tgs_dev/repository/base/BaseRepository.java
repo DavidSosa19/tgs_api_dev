@@ -10,7 +10,8 @@ import java.io.Serializable;
 import java.util.List;
 
 @NoRepositoryBean
-public interface BaseRepository<T,ID extends Serializable> extends JpaRepository<T,ID>, JpaSpecificationExecutor<T> {
+public interface BaseRepository<T, I extends Serializable>
+        extends JpaRepository<T, I>, JpaSpecificationExecutor<T> {
     Page<T> filter(FilterRequest request);
 
     /** Marca un único registro como inactivo (active = false). */

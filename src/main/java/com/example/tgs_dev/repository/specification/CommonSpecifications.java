@@ -4,7 +4,10 @@ import org.springframework.data.jpa.domain.Specification;
 
 import java.util.Collection;
 
-public class CommonSpecifications {
+public final class CommonSpecifications {
+
+    private CommonSpecifications() {}
+
     public static <T> Specification<T> fieldEquals(String field, Object value) {
         return (root, query, cb) ->
                 cb.equal(root.get(field), value);

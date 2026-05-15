@@ -1,7 +1,6 @@
 package com.example.tgs_dev.service;
 
 import com.example.tgs_dev.entity.ScheduleTemplate;
-import com.example.tgs_dev.entity.Vehicle;
 import com.example.tgs_dev.repository.ScheduleTemplateRepository;
 import com.example.tgs_dev.repository.filter.FilterRequest;
 import com.example.tgs_dev.repository.specification.CommonSpecifications;
@@ -44,25 +43,3 @@ public class ScheduleTemplateService {
         return scheduleTemplateRepository.filter(request);
     }
 }
-
-
-//FilterRequest request = new FilterRequest();
-//    request.setPage(page);
-//    request.setSize(size);
-//    request.setSortBy(sortBy);
-//    request.setSortDirection(sortDirection);
-//
-//List<FilterCriteria> filters = new ArrayList<>();
-//
-//    if (status != null) {
-//        filters.add(new FilterCriteria("status", FilterOperator.EQUALS, status, null));
-//        }
-//        if (destination != null) {
-//        filters.add(new FilterCriteria("destination", FilterOperator.LIKE, destination, null));
-//        }
-//        if (minDelay != null) {
-//        filters.add(new FilterCriteria("delayMinutes", FilterOperator.GREATER_THAN, minDelay, null));
-//        }
-//
-//        request.setFilters(filters);
-//    return ResponseEntity.ok(service.filter(request));

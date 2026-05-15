@@ -5,7 +5,6 @@ import com.example.tgs_dev.entity.Schedule;
 import com.example.tgs_dev.entity.ScheduleTemplate;
 import com.example.tgs_dev.entity.VehicleAssignment;
 import com.example.tgs_dev.repository.ScheduleRepository;
-import com.example.tgs_dev.repository.specification.CommonSpecifications;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 

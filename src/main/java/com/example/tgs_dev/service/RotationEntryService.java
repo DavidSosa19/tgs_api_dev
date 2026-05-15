@@ -1,7 +1,6 @@
 package com.example.tgs_dev.service;
 
 import com.example.tgs_dev.entity.RotationEntry;
-import com.example.tgs_dev.entity.Route;
 import com.example.tgs_dev.entity.VehicleRotation;
 import com.example.tgs_dev.repository.RotationEntryRepository;
 import com.example.tgs_dev.repository.specification.CommonSpecifications;

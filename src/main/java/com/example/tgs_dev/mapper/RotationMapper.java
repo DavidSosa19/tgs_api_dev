@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Objects;
 
 @Component
 @RequiredArgsConstructor
@@ -54,7 +55,7 @@ public class RotationMapper {
         return new VehicleRotation(
                 request.startDate(),
                 request.endDate(),
-                request.active() != null ? request.active() : true,
+                Objects.requireNonNullElse(request.active(), Boolean.TRUE),
                 request.rotationType()
         );
     }

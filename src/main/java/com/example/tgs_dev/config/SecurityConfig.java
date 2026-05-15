@@ -1,4 +1,6 @@
 package com.example.tgs_dev.config;
+
+import com.example.tgs_dev.security.AppRole;
 import com.example.tgs_dev.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 
@@ -29,6 +31,10 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+    // ── Path constants ─────────────────────────────────────────────────────────
+    private static final String API_ALL  = "/api/**";
+    private static final String API_AUTH = "/api/auth/**";
+
     private final JwtAuthenticationFilter jwtFilter;
 
     @Value("${app.cors.allowed-origin:http://localhost:4200}")
@@ -42,11 +48,13 @@ public class SecurityConfig {
                 .sessionManagement(s ->
                         s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/**").hasAnyRole("ADMIN", "USER")
-                        .requestMatchers(HttpMethod.POST, "/api/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/**").hasRole("ADMIN")
+                        // Public endpoints
+                        .requestMatchers(API_AUTH).permitAll()
+                        // ── Add / modify rules here to change role permissions ──
+                        .requestMatchers(HttpMethod.GET,    API_ALL).hasAnyRole(AppRole.valuesOf(AppRole.ADMIN, AppRole.USER))
+                        .requestMatchers(HttpMethod.POST,   API_ALL).hasRole(AppRole.ADMIN.value())
+                        .requestMatchers(HttpMethod.PUT,    API_ALL).hasRole(AppRole.ADMIN.value())
+                        .requestMatchers(HttpMethod.DELETE, API_ALL).hasRole(AppRole.ADMIN.value())
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(ex -> ex

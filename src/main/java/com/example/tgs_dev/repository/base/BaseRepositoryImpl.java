@@ -14,16 +14,16 @@ import org.springframework.data.jpa.repository.support.SimpleJpaRepository;
 import java.io.Serializable;
 import java.util.List;
 
-public class BaseRepositoryImpl<T, ID extends Serializable>
-        extends SimpleJpaRepository<T, ID> implements BaseRepository<T, ID> {
+public class BaseRepositoryImpl<T, I extends Serializable>
+        extends SimpleJpaRepository<T, I> implements BaseRepository<T, I> {
 
-    private final JpaEntityInformation<T, ID> entityInformation;
+    private final JpaEntityInformation<T, I> entityInformation;
     private final EntityManager entityManager;
 
     @SuppressWarnings("unchecked")
     public BaseRepositoryImpl(JpaEntityInformation<T, ?> entityInformation, EntityManager entityManager) {
         super(entityInformation, entityManager);
-        this.entityInformation = (JpaEntityInformation<T, ID>) entityInformation;
+        this.entityInformation = (JpaEntityInformation<T, I>) entityInformation;
         this.entityManager = entityManager;
     }
 
@@ -43,7 +43,7 @@ public class BaseRepositoryImpl<T, ID extends Serializable>
     @Override
     @Transactional
     public void softDelete(T entity) {
-        ID id = entityInformation.getId(entity);
+        I id = entityInformation.getId(entity);
         String entityName = entityInformation.getEntityName();
         entityManager.createQuery(
                 "UPDATE " + entityName + " e SET e.active = false WHERE e.id = :id"
@@ -54,7 +54,7 @@ public class BaseRepositoryImpl<T, ID extends Serializable>
     @Transactional
     public void softDeleteAll(List<T> entities) {
         if (entities == null || entities.isEmpty()) return;
-        List<ID> ids = entities.stream()
+        List<I> ids = entities.stream()
                 .map(entityInformation::getId)
                 .toList();
         String entityName = entityInformation.getEntityName();
