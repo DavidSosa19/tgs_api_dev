@@ -14,7 +14,7 @@ import java.time.LocalTime;
 @Entity
 @Table(name="schedule_template",schema="core")
 @SQLRestriction("active = true")
-public class ScheduleTemplate extends BaseAudit{
+public class ScheduleTemplate extends BaseAudit implements Activatable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

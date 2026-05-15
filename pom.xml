@@ -35,9 +35,21 @@
 		<sonar.organization>davidsosa19</sonar.organization>
 		<sonar.projectKey>DavidSosa19_tgs_api_dev</sonar.projectKey>
 		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
-		<sonar.coverage.jacoco.xmlReportPaths>
-			${project.build.directory}/site/jacoco/jacoco.xml
-		</sonar.coverage.jacoco.xmlReportPaths>
+		<sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+		<!--
+		  Classes excluded from coverage analysis:
+		  · JPA entities      — no business logic, just field mappings
+		  · Request / Response DTOs — plain records / data holders
+		  · Spring @Configuration  — wiring, not testable in unit context
+		  · Main application class  — trivial SpringApplication.run()
+		-->
+		<sonar.coverage.exclusions>
+			**/entity/**,
+			**/controller/request/**,
+			**/controller/response/**,
+			**/config/**,
+			**/TgsDevApplication.java
+		</sonar.coverage.exclusions>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -118,25 +130,35 @@
 					</annotationProcessorPaths>
 				</configuration>
 			</plugin>
-			<plugin>
-				<groupId>org.jacoco</groupId>
-				<artifactId>jacoco-maven-plugin</artifactId>
-				<version>${jacoco.version}</version>
-				<executions>
-					<!-- Instrumenta la JVM antes de correr los tests -->
-					<execution>
-						<id>prepare-agent</id>
-						<goals><goal>prepare-agent</goal></goals>
-					</execution>
-					<!-- Genera el reporte XML/HTML después de los tests -->
-					<execution>
-						<id>report</id>
-						<phase>verify</phase>
-						<goals><goal>report</goal></goals>
-					</execution>
-				</executions>
-			</plugin>
-		</plugins>
+			</plugins>
 	</build>
+
+	<profiles>
+		<profile>
+			<id>coverage</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.jacoco</groupId>
+						<artifactId>jacoco-maven-plugin</artifactId>
+						<version>${jacoco.version}</version>
+						<executions>
+							<execution>
+								<id>prepare-agent</id>
+								<goals><goal>prepare-agent</goal></goals>
+							</execution>
+							<execution>
+								<id>report</id>
+								<goals><goal>report</goal></goals>
+								<configuration>
+									<formats><format>XML</format></formats>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 
 </project>

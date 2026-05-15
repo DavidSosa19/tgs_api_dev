@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name="vehicle_assignment", schema = "core")
 @SQLRestriction("active = true")
-public class VehicleAssignment extends BaseAudit{
+public class VehicleAssignment extends BaseAudit implements Activatable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

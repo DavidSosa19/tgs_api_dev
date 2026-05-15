@@ -57,8 +57,9 @@ class VehicleRemovalServiceTest {
         @Test @DisplayName("unknown assignment id → NoSuchElementException with id in message")
         void unknownId_throws() {
             when(vehicleAssignmentService.findById(99)).thenReturn(Optional.empty());
+            var req = request(99, RemovalType.REMOVE_ONLY, null);
 
-            assertThatThrownBy(() -> sut.handleRemoval(request(99, RemovalType.REMOVE_ONLY, null)))
+            assertThatThrownBy(() -> sut.handleRemoval(req))
                     .isInstanceOf(NoSuchElementException.class)
                     .hasMessageContaining("99");
         }
@@ -66,8 +67,9 @@ class VehicleRemovalServiceTest {
         @Test @DisplayName("REMOVE_RECALCULATE without effectiveFrom → IllegalArgumentException")
         void recalculate_requiresEffectiveFrom() {
             stubFindById(1, assignment(1, op, vehicleA, template, 1));
+            var req = request(1, RemovalType.REMOVE_RECALCULATE, null);
 
-            assertThatThrownBy(() -> sut.handleRemoval(request(1, RemovalType.REMOVE_RECALCULATE, null)))
+            assertThatThrownBy(() -> sut.handleRemoval(req))
                     .isInstanceOf(IllegalArgumentException.class);
         }
     }
@@ -216,8 +218,9 @@ class VehicleRemovalServiceTest {
         void route3NotFound() {
             stubFindById(1, assignment(1, op, vehicleA, template, 2));
             when(routeService.findByNumber("3")).thenReturn(Optional.empty());
+            var req = request(1, RemovalType.REMOVE_REPLACE, null);
 
-            assertThatThrownBy(() -> sut.handleRemoval(request(1, RemovalType.REMOVE_REPLACE, null)))
+            assertThatThrownBy(() -> sut.handleRemoval(req))
                     .isInstanceOf(NoSuchElementException.class);
         }
 
@@ -227,8 +230,9 @@ class VehicleRemovalServiceTest {
             stubFindById(1, assignment(1, op, vehicleA, template, 2));
             when(routeService.findByNumber("3")).thenReturn(Optional.of(route3));
             when(routeOperationService.findByRouteAndDate(eq(route3), any())).thenReturn(Optional.empty());
+            var req = request(1, RemovalType.REMOVE_REPLACE, null);
 
-            assertThatThrownBy(() -> sut.handleRemoval(request(1, RemovalType.REMOVE_REPLACE, null)))
+            assertThatThrownBy(() -> sut.handleRemoval(req))
                     .isInstanceOf(NoSuchElementException.class);
         }
 
@@ -240,8 +244,9 @@ class VehicleRemovalServiceTest {
             when(routeService.findByNumber("3")).thenReturn(Optional.of(route3));
             when(routeOperationService.findByRouteAndDate(route3, OP_DATE)).thenReturn(Optional.of(op3));
             when(vehicleAssignmentService.findLastByRouteOperation(op3)).thenReturn(Optional.empty());
+            var req = request(1, RemovalType.REMOVE_REPLACE, null);
 
-            assertThatThrownBy(() -> sut.handleRemoval(request(1, RemovalType.REMOVE_REPLACE, null)))
+            assertThatThrownBy(() -> sut.handleRemoval(req))
                     .isInstanceOf(NoSuchElementException.class);
         }
 

@@ -4,7 +4,6 @@ import com.example.tgs_dev.controller.response.AssignmentSchedulesDTO;
 import com.example.tgs_dev.entity.RouteOperation;
 import com.example.tgs_dev.entity.Schedule;
 import com.example.tgs_dev.entity.VehicleAssignment;
-import com.example.tgs_dev.repository.OperationEventRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,16 +14,13 @@ import java.util.stream.Collectors;
 @Service
 public class MatrixService {
 
-    private final OperationEventRepository operationEventRepository;
     private final ScheduleService scheduleService;
     private final VehicleAssignmentService vehicleAssignmentService;
     private final RouteOperationService routeOperationService;
 
-    public MatrixService(OperationEventRepository operationEventRepository,
-                         ScheduleService scheduleService,
+    public MatrixService(ScheduleService scheduleService,
                          VehicleAssignmentService vehicleAssignmentService,
                          RouteOperationService routeOperationService) {
-        this.operationEventRepository = operationEventRepository;
         this.scheduleService = scheduleService;
         this.vehicleAssignmentService = vehicleAssignmentService;
         this.routeOperationService = routeOperationService;

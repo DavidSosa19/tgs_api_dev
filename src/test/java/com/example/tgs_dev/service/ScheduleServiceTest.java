@@ -17,12 +17,10 @@ import java.util.List;
 
 import static com.example.tgs_dev.TestFixtures.*;
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 
 /**
  * Unit tests for ScheduleService.
- *
  * Only calculateVehicleSchedules is tested here because it contains real domain
  * logic (schedule generation algorithm). CRUD delegation methods are intentionally
  * omitted — they are wiring, not logic; an integration test is the right place for them.
@@ -34,15 +32,15 @@ class ScheduleServiceTest {
     @Mock ScheduleRepository repo;
     @InjectMocks ScheduleService sut;
 
-    private Route            route;
-    private ScheduleTemplate template;
     private RouteOperation   op;
     private VehicleAssignment va;
 
     @BeforeEach
     void setUp() {
-        route    = route(1, "1", /*baseDuration=*/30, /*cycleCount=*/3);
-        template = template(100, route, LocalTime.of(6, 0));
+        /*baseDuration=*/
+        /*cycleCount=*/
+        Route route = route(1, "1", /*baseDuration=*/30, /*cycleCount=*/3);
+        ScheduleTemplate template = template(100, route, LocalTime.of(6, 0));
         op       = operation(1, route, OP_DATE);
         va       = assignment(1, op, vehicle(10, "V-001"), template, 1);
     }
@@ -56,7 +54,7 @@ class ScheduleServiceTest {
     @Test @DisplayName("first schedule has the template's start time")
     void firstScheduleStartsAtTemplateTime() {
         sut.calculateVehicleSchedules(List.of(va));
-        assertThat(capturedSchedules().get(0).getDepartureTime()).isEqualTo(LocalTime.of(6, 0));
+        assertThat(capturedSchedules().getFirst().getDepartureTime()).isEqualTo(LocalTime.of(6, 0));
     }
 
     @Test @DisplayName("each consecutive schedule is baseDuration minutes after the previous")
@@ -109,8 +107,8 @@ class ScheduleServiceTest {
             List<Schedule> forVa  = all.stream().filter(s -> s.getVehicleAssignment().equals(va)).toList();
             List<Schedule> forVa2 = all.stream().filter(s -> s.getVehicleAssignment().equals(va2)).toList();
 
-            assertThat(forVa.get(0).getDepartureTime()).isEqualTo(LocalTime.of(6, 0));
-            assertThat(forVa2.get(0).getDepartureTime()).isEqualTo(LocalTime.of(8, 0));
+            assertThat(forVa.getFirst().getDepartureTime()).isEqualTo(LocalTime.of(6, 0));
+            assertThat(forVa2.getFirst().getDepartureTime()).isEqualTo(LocalTime.of(8, 0));
         }
     }
 

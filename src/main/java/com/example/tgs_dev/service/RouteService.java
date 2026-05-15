@@ -42,6 +42,6 @@ public class RouteService {
     }
 
     public Page<Route> filter(FilterRequest request) {
-        return routeRepository.filter(request);
+        return routeRepository.filter(request, request.toPageable());
     }
 }

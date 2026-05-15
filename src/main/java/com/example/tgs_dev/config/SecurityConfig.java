@@ -41,8 +41,12 @@ public class SecurityConfig {
     private String allowedOrigin;
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http) {
         return http
+                // CSRF disabled intentionally: this is a stateless REST API that uses
+                // JWT tokens (Bearer header), not browser session cookies. There is
+                // therefore no CSRF attack surface — every request must carry an
+                // explicit Authorization header that a malicious site cannot forge.
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(s ->
@@ -85,9 +89,12 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config)
-            throws Exception {
-        return config.getAuthenticationManager();
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) {
+        try {
+            return config.getAuthenticationManager();
+        } catch (Exception ex) {
+            throw new IllegalStateException("Could not obtain AuthenticationManager", ex);
+        }
     }
 
     @Bean

@@ -40,6 +40,6 @@ public class ScheduleTemplateService {
     }
 
     public Page<ScheduleTemplate> filter(FilterRequest request) {
-        return scheduleTemplateRepository.filter(request);
+        return scheduleTemplateRepository.filter(request, request.toPageable());
     }
 }

@@ -31,13 +31,17 @@ public class OperationOrchestratorService {
         this.routeService = routeService;
     }
 
-    @Transactional
-    public void initDailyOperation(Route route, List<RotationEntry> dayRotation,LocalDate date) {
-        RouteOperation dayOperation = routeOperationService.initRoutOperation(route,date);
+    // Not annotated with @Transactional itself: callers (initAllOperations /
+    // initOperation) are the real transaction boundaries and always call this
+    // within an active transaction. Keeping @Transactional here would be dead
+    // code — same-class self-invocations bypass the Spring proxy.
+    private void initDailyOperation(Route route, List<RotationEntry> dayRotation, LocalDate date) {
+        RouteOperation dayOperation = routeOperationService.initRoutOperation(route, date);
         List<VehicleAssignment> assignments = vehicleAssignmentService.assignVehicles(dayRotation, dayOperation);
         scheduleService.calculateVehicleSchedules(assignments);
     }
 
+    @Transactional
     public void initAllOperations(LocalDate date) {
         ShiftDayType dayType = DateUtils.getTypeofDay(date);
         Map<String, List<RotationEntry>> rotationMapForRoute = getRotationsByRoute(
@@ -45,12 +49,13 @@ public class OperationOrchestratorService {
 
         routeService.findAll().forEach(route ->
                 initDailyOperation(route,
-                        rotationMapForRoute.getOrDefault(route.getRouteNumber(), List.of()),date)
+                        rotationMapForRoute.getOrDefault(route.getRouteNumber(), List.of()), date)
         );
     }
 
+    @Transactional
     public void initOperation(Route route, LocalDate date) {
-        initDailyOperation(route, getEntriesForRoute(route, date),date);
+        initDailyOperation(route, getEntriesForRoute(route, date), date);
     }
 
     private List<RotationEntry> getEntriesForRoute(Route route, LocalDate date) {

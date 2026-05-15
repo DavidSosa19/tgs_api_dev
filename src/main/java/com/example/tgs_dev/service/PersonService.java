@@ -40,6 +40,6 @@ public class PersonService {
     }
 
     public Page<Person> filter(FilterRequest request) {
-        return personRepository.filter(request);
+        return personRepository.filter(request, request.toPageable());
     }
 }

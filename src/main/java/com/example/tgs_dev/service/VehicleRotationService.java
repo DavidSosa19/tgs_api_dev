@@ -14,8 +14,6 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.*;
 
-import static com.example.tgs_dev.repository.specification.CommonSpecifications.*;
-
 @Service
 public class VehicleRotationService {
 
@@ -41,7 +39,7 @@ public class VehicleRotationService {
     public List<VehicleRotation> findAll(){ return vehicleRotationRepository.findAll(); }
 
     public Page<VehicleRotation> filter(FilterRequest request) {
-        return vehicleRotationRepository.filter(request);
+        return vehicleRotationRepository.filter(request, request.toPageable());
     }
 
     public List<RotationEntry> getRotationFromDate(ShiftDayType rotationType, LocalDate date){

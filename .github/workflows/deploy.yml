@@ -30,15 +30,10 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Run tests and generate coverage
-        run: ./mvnw verify -q
-
-      - name: Analyze with SonarCloud
+      - name: Test, coverage and SonarCloud analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          ./mvnw sonar:sonar \
-            -Dsonar.token=$SONAR_TOKEN
+        run: ./mvnw clean verify sonar:sonar -Pcoverage -Dsonar.token=$SONAR_TOKEN
 
   # ── 2. Build + Deploy (solo en push a master, requiere sonar verde) ───────
   build-and-push:

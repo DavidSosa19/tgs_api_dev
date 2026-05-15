@@ -15,7 +15,7 @@ import java.util.List;
 @Entity
 @Table(name="vehicle_rotation", schema = "core")
 @SQLRestriction("active = true")
-public class VehicleRotation extends BaseAudit{
+public class VehicleRotation extends BaseAudit implements Activatable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -63,8 +63,11 @@ public class GlobalExceptionHandler {
         String message = constraintResolver.resolve(ex);
 
         if (message != null) {
-            // Known constraint — log at WARN level (no stack trace needed)
-            log.warn("Data integrity violation [{}]: {}", extractConstraintName(ex), message);
+            // Known constraint — log at WARN level (no stack trace needed).
+            // extractConstraintName is guarded so it is only called when WARN is enabled.
+            if (log.isWarnEnabled()) {
+                log.warn("Data integrity violation [{}]: {}", extractConstraintName(ex), message);
+            }
             return ResponseEntity
                     .status(HttpStatus.CONFLICT)
                     .body(ApiResponse.error(message));

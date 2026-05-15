@@ -1,6 +1,8 @@
 package com.example.tgs_dev.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -10,6 +12,8 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor   // required by @Builder when @NoArgsConstructor is present
+@Builder
 @Entity
 @Table(name="operation_event", schema = "core")
 public class OperationEvent extends BaseAudit{
@@ -49,15 +53,4 @@ public class OperationEvent extends BaseAudit{
     @Column(name="delay_seconds")
     private Integer delaySeconds;
 
-    public OperationEvent(RouteOperation routeOperation, Vehicle vehicle, Person driver, String eventType, LocalDateTime eventTime, LocalDateTime startTime, LocalDateTime endTime, Integer plannedTime, Integer delaySeconds) {
-        this.routeOperation = routeOperation;
-        this.vehicle = vehicle;
-        this.driver = driver;
-        this.eventType = eventType;
-        this.eventTime = eventTime;
-        this.startTime = startTime;
-        this.endTime = endTime;
-        this.plannedTime = plannedTime;
-        this.delaySeconds = delaySeconds;
-    }
 }

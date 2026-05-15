@@ -6,13 +6,18 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 
+import java.io.Serializable;
+
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
 @Table(name="person", schema = "core")
 @SQLRestriction("active = true")
-public class Person extends BaseAudit{
+public class Person extends BaseAudit implements Activatable, Serializable {
+
+    @java.io.Serial
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

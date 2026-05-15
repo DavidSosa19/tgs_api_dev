@@ -71,10 +71,6 @@ public class AuthController {
         }
     }
 
-    /**
-     * Registra un nuevo usuario.
-     * Retorna UserDTO — nunca la entidad User (evita exponer el hash de contraseña).
-     */
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<UserDTO>> register(@RequestBody @Valid RegisterRequest request) {
         User newUser = userService.signUpUser(request);

@@ -12,7 +12,9 @@ import java.util.Objects;
 
 public class GenericSpecification<T> implements Specification<T> {
 
-    private final FilterRequest filterRequest;
+    // transient: Specification<T> extends Serializable, but GenericSpecification
+    // is only used within a request scope and is never actually serialized.
+    private final transient FilterRequest filterRequest;
 
     public GenericSpecification(FilterRequest filterRequest) {
         this.filterRequest = filterRequest;

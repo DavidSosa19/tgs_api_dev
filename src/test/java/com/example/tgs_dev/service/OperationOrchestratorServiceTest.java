@@ -1,6 +1,5 @@
 package com.example.tgs_dev.service;
 
-import com.example.tgs_dev.TestFixtures;
 import com.example.tgs_dev.entity.*;
 import com.example.tgs_dev.entity.enums.ShiftDayType;
 import com.example.tgs_dev.util.DateUtils;
@@ -82,9 +81,11 @@ class OperationOrchestratorServiceTest {
         }
     }
 
-    // ── initDailyOperation ────────────────────────────────────────────────────
-    @Nested @DisplayName("initDailyOperation")
-    class InitDailyOperation {
+    // ── initOperation ─────────────────────────────────────────────────────────
+    // initDailyOperation is private — its orchestration logic is verified here
+    // through the public initOperation entry point.
+    @Nested @DisplayName("initOperation")
+    class InitOperation {
 
         @Test @DisplayName("creates route operation, then assigns vehicles, then calculates schedules")
         void invokesServicesInOrder() {
@@ -92,15 +93,20 @@ class OperationOrchestratorServiceTest {
             RouteOperation op = operation(1, route1, date);
             List<VehicleAssignment> assignments = List.of(new VehicleAssignment());
 
-            when(routeOperationService.initRoutOperation(route1, date)).thenReturn(op);
-            when(vehicleAssignmentService.assignVehicles(List.of(entry1), op)).thenReturn(assignments);
+            try (MockedStatic<DateUtils> utils = mockStatic(DateUtils.class)) {
+                utils.when(() -> DateUtils.getTypeofDay(date)).thenReturn(ShiftDayType.BUSINESS_DAYS);
+                when(vehicleRotationService.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, date))
+                        .thenReturn(List.of(entry1));
+                when(routeOperationService.initRoutOperation(route1, date)).thenReturn(op);
+                when(vehicleAssignmentService.assignVehicles(List.of(entry1), op)).thenReturn(assignments);
 
-            sut.initDailyOperation(route1, List.of(entry1), date);
+                sut.initOperation(route1, date);
 
-            var ordered = inOrder(routeOperationService, vehicleAssignmentService, scheduleService);
-            ordered.verify(routeOperationService).initRoutOperation(route1, date);
-            ordered.verify(vehicleAssignmentService).assignVehicles(List.of(entry1), op);
-            ordered.verify(scheduleService).calculateVehicleSchedules(assignments);
+                var ordered = inOrder(routeOperationService, vehicleAssignmentService, scheduleService);
+                ordered.verify(routeOperationService).initRoutOperation(route1, date);
+                ordered.verify(vehicleAssignmentService).assignVehicles(List.of(entry1), op);
+                ordered.verify(scheduleService).calculateVehicleSchedules(assignments);
+            }
         }
     }
 

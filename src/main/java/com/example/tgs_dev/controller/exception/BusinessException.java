@@ -4,6 +4,6 @@ import org.springframework.http.HttpStatus;
 
 public class BusinessException extends AppException {
     public BusinessException(String message) {
-        super(message, HttpStatus.UNPROCESSABLE_ENTITY);
+        super(message, HttpStatus.UNPROCESSABLE_CONTENT);
     }
 }

@@ -1,6 +1,7 @@
 package com.example.tgs_dev.entity;
 
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import com.example.tgs_dev.entity.enums.Role;
 import jakarta.persistence.*;
 import lombok.*;
@@ -21,10 +22,11 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @NullMarked
-public class User implements UserDetails {
+public class User implements UserDetails, Activatable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Nullable          // null before JPA assigns the generated value
     private Long id;
 
     @Column(name = "user_name", nullable = false, unique = true)

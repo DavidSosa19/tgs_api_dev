@@ -12,7 +12,7 @@ import org.hibernate.annotations.SQLRestriction;
 @Entity
 @Table(name="vehicle", schema = "core")
 @SQLRestriction("active = true")
-public class Vehicle extends BaseAudit{
+public class Vehicle extends BaseAudit implements Activatable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -15,7 +15,7 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "route_operation", schema = "core")
 @SQLRestriction("active = true")
-public class RouteOperation extends BaseAudit{
+public class RouteOperation extends BaseAudit implements Activatable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

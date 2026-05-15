@@ -1,6 +1,5 @@
 package com.example.tgs_dev.service;
 
-import com.example.tgs_dev.TestFixtures;
 import com.example.tgs_dev.entity.*;
 import com.example.tgs_dev.repository.VehicleAssignmentRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,7 +19,7 @@ import java.util.List;
 
 import static com.example.tgs_dev.TestFixtures.*;
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -38,14 +37,13 @@ class VehicleAssignmentServiceTest {
 
     @InjectMocks VehicleAssignmentService sut;
 
-    private Route            route;
     private RouteOperation   op;
     private Vehicle          vehicle;
     private ScheduleTemplate template;
 
     @BeforeEach
     void setUp() {
-        route    = route(1, "1");
+        Route route = route(1, "1");
         op       = operation(1, route, OP_DATE);
         vehicle  = vehicle(10, "V-001");
         template = template(100, route, LocalTime.of(6, 0));

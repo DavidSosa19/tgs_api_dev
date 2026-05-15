@@ -1,6 +1,5 @@
 package com.example.tgs_dev.service;
 
-import com.example.tgs_dev.controller.exception.ResourceNotFoundException;
 import com.example.tgs_dev.controller.request.RegisterRequest;
 import com.example.tgs_dev.entity.Person;
 import com.example.tgs_dev.entity.User;

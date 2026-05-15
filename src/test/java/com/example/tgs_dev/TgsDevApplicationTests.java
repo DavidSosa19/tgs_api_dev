@@ -8,6 +8,8 @@ class TgsDevApplicationTests {
 
 	@Test
 	void contextLoads() {
+		// Verifies that the Spring application context starts without errors.
+		// No assertions needed: a failure here means the context itself failed to load.
 	}
 
 }

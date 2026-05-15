@@ -1,13 +1,12 @@
 package com.example.tgs_dev.repository.base;
 
+import com.example.tgs_dev.entity.Activatable;
 import com.example.tgs_dev.repository.filter.FilterRequest;
 import com.example.tgs_dev.repository.filter.GenericSpecification;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.support.JpaEntityInformation;
 import org.springframework.data.jpa.repository.support.SimpleJpaRepository;
 
@@ -17,49 +16,49 @@ import java.util.List;
 public class BaseRepositoryImpl<T, I extends Serializable>
         extends SimpleJpaRepository<T, I> implements BaseRepository<T, I> {
 
-    private final JpaEntityInformation<T, I> entityInformation;
+    // EntityManager stored directly so softDelete / softDeleteAll can call
+    // em.merge() without routing through the Spring proxy (avoiding S6809).
     private final EntityManager entityManager;
 
-    @SuppressWarnings("unchecked")
     public BaseRepositoryImpl(JpaEntityInformation<T, ?> entityInformation, EntityManager entityManager) {
         super(entityInformation, entityManager);
-        this.entityInformation = (JpaEntityInformation<T, I>) entityInformation;
         this.entityManager = entityManager;
     }
 
     @Override
-    public Page<T> filter(FilterRequest request) {
-        GenericSpecification<T> spec = new GenericSpecification<>(request);
-
-        Sort sort = Sort.by(
-                Sort.Direction.fromString(request.getSortDirection()),
-                request.getSortBy() != null ? request.getSortBy() : "id"
-        );
-
-        Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), sort);
-        return findAll(spec, pageable);
+    public Page<T> filter(FilterRequest request, Pageable pageable) {
+        return findAll(new GenericSpecification<>(request), pageable);
     }
 
+    /**
+     * Marks a single entity as inactive ({@code active = false}) and merges it
+     * into the current persistence context via {@link EntityManager#merge(Object)}.
+     *
+     * <p>Entities must implement {@link Activatable} (i.e. expose a
+     * {@code setActive(Boolean)} setter) for this method to have any effect.</p>
+     */
     @Override
     @Transactional
     public void softDelete(T entity) {
-        I id = entityInformation.getId(entity);
-        String entityName = entityInformation.getEntityName();
-        entityManager.createQuery(
-                "UPDATE " + entityName + " e SET e.active = false WHERE e.id = :id"
-        ).setParameter("id", id).executeUpdate();
+        if (entity instanceof Activatable a) {
+            a.setActive(false);
+            entityManager.merge(entity);
+        }
     }
 
+    /**
+     * Marks every entity in the list as inactive and merges each one into the
+     * current persistence context.
+     */
     @Override
     @Transactional
     public void softDeleteAll(List<T> entities) {
         if (entities == null || entities.isEmpty()) return;
-        List<I> ids = entities.stream()
-                .map(entityInformation::getId)
-                .toList();
-        String entityName = entityInformation.getEntityName();
-        entityManager.createQuery(
-                "UPDATE " + entityName + " e SET e.active = false WHERE e.id IN :ids"
-        ).setParameter("ids", ids).executeUpdate();
+        entities.forEach(e -> {
+            if (e instanceof Activatable a) {
+                a.setActive(false);
+                entityManager.merge(e);
+            }
+        });
     }
 }
