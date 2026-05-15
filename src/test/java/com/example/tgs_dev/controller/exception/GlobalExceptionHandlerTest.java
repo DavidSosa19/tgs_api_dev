@@ -1,6 +1,5 @@
 package com.example.tgs_dev.controller.exception;
 
-import com.example.tgs_dev.controller.response.ApiResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -10,7 +9,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 
 import java.util.NoSuchElementException;
 

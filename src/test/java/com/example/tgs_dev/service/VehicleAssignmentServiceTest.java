@@ -24,7 +24,6 @@ import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for VehicleAssignmentService.
- *
  * Strategy: only test methods that contain logic (state transitions, invariants,
  * transformations). Pure delegation methods (save → repo.save) are intentionally
  * omitted — they add no value and couple tests to implementation details.

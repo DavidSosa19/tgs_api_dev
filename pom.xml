@@ -38,17 +38,26 @@
 		<sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
 		<!--
 		  Classes excluded from coverage analysis:
-		  · JPA entities      — no business logic, just field mappings
+		  · JPA entities           — no business logic, just field mappings
 		  · Request / Response DTOs — plain records / data holders
 		  · Spring @Configuration  — wiring, not testable in unit context
 		  · Main application class  — trivial SpringApplication.run()
+		  · Exception wrappers     — constructors that delegate to super()
+		  · Enums without logic    — FilterOperator, LogicOperator
 		-->
 		<sonar.coverage.exclusions>
 			**/entity/**,
 			**/controller/request/**,
 			**/controller/response/**,
 			**/config/**,
-			**/TgsDevApplication.java
+			**/TgsDevApplication.java,
+			**/exception/AppException.java,
+			**/exception/BusinessException.java,
+			**/exception/ConflictException.java,
+			**/exception/ResourceNotFoundException.java,
+			**/repository/filter/FilterOperator.java,
+			**/repository/filter/LogicOperator.java,
+			**/security/AppRole.java
 		</sonar.coverage.exclusions>
 	</properties>
 	<dependencies>
