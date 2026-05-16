@@ -232,7 +232,7 @@ class GenericSpecificationTest {
                     requestWith(List.of(criteria("age", FilterOperator.BETWEEN, "18", "65")), LogicOperator.AND));
             lenient().when(path.getJavaType()).thenReturn((Class) Integer.class);
             spec.toPredicate(root, query, cb);
-            verify(cb).between(any(Path.class), (Comparable) any(), (Comparable) any());
+            verify(cb).between(path, 18, 65);
         }
 
         @Test

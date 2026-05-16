@@ -9,7 +9,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 
+import java.util.List;
 import java.util.NoSuchElementException;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,9 +24,30 @@ import static org.mockito.Mockito.when;
 class GlobalExceptionHandlerTest {
 
     @Mock ConstraintMessageResolver constraintResolver;
+    @Mock MethodArgumentNotValidException validEx;
+    @Mock BindingResult bindingResult;
     GlobalExceptionHandler sut;
 
     @BeforeEach void setUp() { sut = new GlobalExceptionHandler(constraintResolver); }
+
+    @Nested @DisplayName("handleValidation")
+    class HandleValidation {
+        @Test @DisplayName("400 with field name and message in errors list")
+        void returns400WithFieldErrors() {
+            FieldError fe = new FieldError("obj", "name", "must not be blank");
+            when(validEx.getBindingResult()).thenReturn(bindingResult);
+            when(bindingResult.getFieldErrors()).thenReturn(List.of(fe));
+
+            var res = sut.handleValidation(validEx);
+
+            assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(res.getBody().success()).isFalse();
+            assertThat(res.getBody().message()).isEqualTo("Validation failed");
+            assertThat(res.getBody().errors()).hasSize(1);
+            assertThat(res.getBody().errors().getFirst().field()).isEqualTo("name");
+            assertThat(res.getBody().errors().getFirst().reason()).isEqualTo("must not be blank");
+        }
+    }
 
     @Nested @DisplayName("handleAppException")
     class HandleAppException {

@@ -149,7 +149,8 @@ class OperationOrchestratorServiceTest {
 
                 sut.initAllOperations(date);
 
-                verify(routeOperationService, times(2)).initRoutOperation(any(), eq(date));
+                verify(routeOperationService).initRoutOperation(route1, date);
+                verify(routeOperationService).initRoutOperation(route2, date);
             }
         }
     }
