@@ -14,6 +14,8 @@ public final class AppRole {
 
     private AppRole() {}
 
-    public static final String ADMIN = "ADMIN";
-    public static final String USER  = "USER";
+    public static final String ADMIN       = "ADMIN";
+    public static final String USER        = "USER";
+    /** System-level role — not scoped to any company. */
+    public static final String SUPER_ADMIN = "SUPER_ADMIN";
 }

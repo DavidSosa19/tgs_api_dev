@@ -20,6 +20,9 @@ target/
 .project
 .classpath
 
+# ── DB Migrations (contain credentials) ──────────────────────────────────────
+src/main/resources/sql/
+
 # ── Environment & secrets ─────────────────────────────────────────────────────
 .env
 .env.*

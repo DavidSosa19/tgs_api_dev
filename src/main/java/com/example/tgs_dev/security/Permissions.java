@@ -43,4 +43,13 @@ public final class Permissions {
 
     // ── Matrix viewer ─────────────────────────────────────────────────────────
     public static final String MATRIX_VIEW = "MATRIX_VIEW";
+
+    // ── Super-admin (system-level, cross-tenant) ───────────────────────────────
+    /** Master gate: grants access to all /api/admin/** endpoints. */
+    public static final String SUPER_ADMIN_ACCESS    = "SUPER_ADMIN_ACCESS";
+    public static final String COMPANY_READ          = "COMPANY_READ";
+    public static final String COMPANY_WRITE         = "COMPANY_WRITE";
+    public static final String COMPANY_DEACTIVATE    = "COMPANY_DEACTIVATE";
+    public static final String ADMIN_USER_READ       = "ADMIN_USER_READ";
+    public static final String ADMIN_USER_WRITE      = "ADMIN_USER_WRITE";
 }

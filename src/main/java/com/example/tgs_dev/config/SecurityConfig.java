@@ -1,6 +1,7 @@
 package com.example.tgs_dev.config;
 
 import com.example.tgs_dev.security.JwtAuthenticationFilter;
+import com.example.tgs_dev.security.Permissions;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -29,8 +30,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private static final String API_ALL  = "/api/**";
-    private static final String API_AUTH = "/api/auth/**";
+    private static final String API_ALL   = "/api/**";
+    private static final String API_AUTH  = "/api/auth/**";
+    private static final String API_ADMIN = "/api/admin/**";
 
     private final JwtAuthenticationFilter jwtFilter;
 
@@ -48,6 +50,8 @@ public class SecurityConfig {
                         s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(API_AUTH).permitAll()
+                        // Capa 1: sólo SUPER_ADMIN puede alcanzar /api/admin/**
+                        .requestMatchers(API_ADMIN).hasAuthority(Permissions.SUPER_ADMIN_ACCESS)
                         // El control granular se delega a @PreAuthorize en cada endpoint.
                         .anyRequest().authenticated()
                 )

@@ -46,7 +46,11 @@ public class User implements UserDetails, Activatable {
     @Builder.Default
     private Set<AppRoleEntity> roles = new HashSet<>();
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    /**
+     * 1-to-1 relationship: one person can be linked to at most one user account.
+     * The DB enforces this via UNIQUE constraint on users.person_id (V6 migration).
+     */
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "person_id")
     @Nullable
     private Person person;
