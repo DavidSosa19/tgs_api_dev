@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 
+import com.example.tgs_dev.entity.Company;
 import java.io.Serializable;
 
 @Getter
@@ -41,6 +42,10 @@ public class Person extends BaseAudit implements Activatable, Serializable {
 
     @Column(name="active")
     private Boolean active = true;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
 
     public Person(String documentNumber, String firstName, String secondName, String firstLastName, String secondLastName) {
         this.documentNumber = documentNumber;

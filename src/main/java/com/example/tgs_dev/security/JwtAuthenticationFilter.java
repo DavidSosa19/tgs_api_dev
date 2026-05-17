@@ -1,5 +1,7 @@
 package com.example.tgs_dev.security;
 
+import com.example.tgs_dev.entity.User;
+
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -65,6 +67,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
+
+                // Populate the tenant context so service-layer queries can scope
+                // results to this user's company without extra DB lookups.
+                if (userDetails instanceof User u && u.getCompany() != null) {
+                    TenantContext.set(u.getCompany().getId());
+                }
             }
 
         } catch (ExpiredJwtException e) {
@@ -75,7 +83,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        chain.doFilter(request, response);
+        try {
+            chain.doFilter(request, response);
+        } finally {
+            // Always clear the tenant context to prevent context leakage on
+            // thread-pool threads that serve subsequent requests.
+            TenantContext.clear();
+        }
     }
 
     private void sendError(HttpServletResponse res, String msg) throws IOException {

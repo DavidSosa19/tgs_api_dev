@@ -9,6 +9,7 @@ import com.example.tgs_dev.entity.RotationEntry;
 import com.example.tgs_dev.entity.VehicleRotation;
 import com.example.tgs_dev.mapper.RotationMapper;
 import com.example.tgs_dev.repository.filter.FilterRequest;
+import com.example.tgs_dev.security.Permissions;
 import com.example.tgs_dev.service.RotationEntryService;
 import com.example.tgs_dev.service.ScheduleTemplateService;
 import com.example.tgs_dev.service.VehicleRotationService;
@@ -18,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -34,12 +36,14 @@ public class VehicleRotationController {
     private final RotationMapper rotationMapper;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('" + Permissions.ROTATION_READ + "')")
     public ResponseEntity<ApiResponse<List<VehicleRotationDTO>>> findAllRotations() {
         List<VehicleRotationDTO> rotations = rotationMapper.toRotationDTOList(vehicleRotationService.findAll());
         return ResponseEntity.ok(ApiResponse.ok(rotations));
     }
 
     @GetMapping("/entries/{id}")
+    @PreAuthorize("hasAuthority('" + Permissions.ROTATION_READ + "')")
     public ResponseEntity<ApiResponse<RotationDTO>> findEntriesByRotation(@PathVariable Integer id) {
         VehicleRotation rotation = vehicleRotationService.findById(id);
         List<RotationEntry> entries = rotationEntryService.findByRotation(rotation);
@@ -47,6 +51,7 @@ public class VehicleRotationController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('" + Permissions.ROTATION_WRITE + "')")
     public ResponseEntity<ApiResponse<RotationDTO>> createRotation(@RequestBody @Valid RotationRequest request) {
         VehicleRotation rotation = vehicleRotationService.save(rotationMapper.toEntity(request));
         List<RotationEntry> entries = buildEntries(request.entries(), rotation);
@@ -56,6 +61,7 @@ public class VehicleRotationController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('" + Permissions.ROTATION_WRITE + "')")
     public ResponseEntity<ApiResponse<RotationDTO>> updateRotation(@PathVariable Integer id,
                                                                     @RequestBody @Valid RotationRequest request) {
         VehicleRotation rotation = vehicleRotationService.findById(id);
@@ -68,12 +74,14 @@ public class VehicleRotationController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('" + Permissions.ROTATION_WRITE + "')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Integer id) {
         vehicleRotationService.delete(vehicleRotationService.findById(id));
         return ResponseEntity.ok(ApiResponse.ok("Rotation deleted successfully", null));
     }
 
     @PostMapping("/filter")
+    @PreAuthorize("hasAuthority('" + Permissions.ROTATION_READ + "')")
     public ResponseEntity<ApiResponse<Page<VehicleRotationDTO>>> filter(@RequestBody @Valid FilterRequest request) {
         Page<VehicleRotationDTO> page = vehicleRotationService.filter(request).map(rotationMapper::toRotationDTO);
         return ResponseEntity.ok(ApiResponse.ok(page));

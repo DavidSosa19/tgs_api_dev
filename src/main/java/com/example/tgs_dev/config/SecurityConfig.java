@@ -1,15 +1,8 @@
 package com.example.tgs_dev.config;
 
-import com.example.tgs_dev.security.AppRole;
 import com.example.tgs_dev.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpMethod;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -24,14 +17,18 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity
+@EnableMethodSecurity          // habilita @PreAuthorize en controllers y servicios
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    // ── Path constants ─────────────────────────────────────────────────────────
     private static final String API_ALL  = "/api/**";
     private static final String API_AUTH = "/api/auth/**";
 
@@ -43,23 +40,17 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) {
         return http
-                // CSRF disabled intentionally: this is a stateless REST API that uses
-                // JWT tokens (Bearer header), not browser session cookies. There is
-                // therefore no CSRF attack surface — every request must carry an
-                // explicit Authorization header that a malicious site cannot forge.
+                // CSRF deshabilitado intencionalmente: API REST stateless con JWT en
+                // cabecera Authorization — no hay attack surface de CSRF.
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(s ->
                         s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
                         .requestMatchers(API_AUTH).permitAll()
-                        // ── Add / modify rules here to change role permissions ──
-                        .requestMatchers(HttpMethod.GET,    API_ALL).hasAnyRole(AppRole.valuesOf(AppRole.ADMIN, AppRole.USER))
-                        .requestMatchers(HttpMethod.POST,   API_ALL).hasRole(AppRole.ADMIN.value())
-                        .requestMatchers(HttpMethod.PUT,    API_ALL).hasRole(AppRole.ADMIN.value())
-                        .requestMatchers(HttpMethod.DELETE, API_ALL).hasRole(AppRole.ADMIN.value())
-                        .anyRequest().authenticated())
+                        // El control granular se delega a @PreAuthorize en cada endpoint.
+                        .anyRequest().authenticated()
+                )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((req, res, e) -> {

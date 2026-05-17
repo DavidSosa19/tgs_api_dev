@@ -3,6 +3,7 @@ package com.example.tgs_dev.service;
 import com.example.tgs_dev.entity.*;
 import com.example.tgs_dev.repository.VehicleAssignmentRepository;
 import com.example.tgs_dev.repository.specification.CommonSpecifications;
+import com.example.tgs_dev.repository.specification.TenantSpecifications;
 import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -20,21 +21,35 @@ public class VehicleAssignmentService {
     private static final String FIELD_ROUTE_OPERATION   = "routeOperation";
 
     private final VehicleAssignmentRepository vehicleAssignmentRepository;
+    private final TenantService               tenantService;
 
-    public VehicleAssignmentService(VehicleAssignmentRepository vehicleAssignmentRepository) {
+    public VehicleAssignmentService(VehicleAssignmentRepository vehicleAssignmentRepository,
+                                    TenantService tenantService) {
         this.vehicleAssignmentRepository = vehicleAssignmentRepository;
+        this.tenantService               = tenantService;
     }
 
     public VehicleAssignment save(VehicleAssignment vehicleAssignment) {
+        if (vehicleAssignment.getCompany() == null) {
+            vehicleAssignment.setCompany(tenantService.currentCompany());
+        }
         return vehicleAssignmentRepository.save(vehicleAssignment);
     }
 
+    /**
+     * Tenant-scoped lookup — prevents IDOR (CWE-639).
+     * Only returns an assignment that belongs to the current tenant's company.
+     */
     public Optional<VehicleAssignment> findById(Integer id) {
-        return vehicleAssignmentRepository.findById(id);
+        Integer companyId = tenantService.currentCompanyId();
+        return vehicleAssignmentRepository.findOne(
+                Specification.<VehicleAssignment>where(CommonSpecifications.fieldEquals("id", id))
+                        .and(TenantSpecifications.belongsToCompany(companyId)));
     }
 
     public List<VehicleAssignment> findAll() {
-        return vehicleAssignmentRepository.findAll();
+        return vehicleAssignmentRepository.findAll(
+                TenantSpecifications.belongsToCompany(tenantService.currentCompanyId()));
     }
 
     public List<VehicleAssignment> findByRouteOperation(RouteOperation routeOperation) {
@@ -70,15 +85,18 @@ public class VehicleAssignmentService {
     @Transactional
     public List<VehicleAssignment> assignVehicles(List<RotationEntry> dayRotation,
                                                   RouteOperation routeOperation) {
+        Company company = tenantService.currentCompany();
         List<VehicleAssignment> assignments = IntStream.range(0, dayRotation.size())
                 .mapToObj(i -> {
                     RotationEntry entry = dayRotation.get(i);
-                    return new VehicleAssignment(
+                    VehicleAssignment va = new VehicleAssignment(
                             routeOperation,
                             entry.getVehicle(),
                             entry.getScheduleTemplate(),
                             i + 1
                     );
+                    va.setCompany(company);
+                    return va;
                 })
                 .toList();
         return vehicleAssignmentRepository.saveAll(assignments);

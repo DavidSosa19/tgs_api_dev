@@ -1,9 +1,11 @@
 package com.example.tgs_dev.service;
 
+import com.example.tgs_dev.entity.Company;
 import com.example.tgs_dev.entity.RotationEntry;
 import com.example.tgs_dev.entity.VehicleRotation;
 import com.example.tgs_dev.entity.enums.ShiftDayType;
 import com.example.tgs_dev.repository.RotationEntryRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -19,6 +21,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import static com.example.tgs_dev.TestFixtures.company;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -28,7 +31,17 @@ import static org.mockito.Mockito.*;
 class RotationEntryServiceTest {
 
     @Mock RotationEntryRepository repo;
+    @Mock TenantService           tenantService;
     @InjectMocks RotationEntryService sut;
+
+    private static final int     COMPANY_ID = 1;
+    private static final Company COMPANY    = company(COMPANY_ID, "Test Corp");
+
+    @BeforeEach
+    void stubTenant() {
+        lenient().when(tenantService.currentCompanyId()).thenReturn(COMPANY_ID);
+        lenient().when(tenantService.currentCompany()).thenReturn(COMPANY);
+    }
 
     private VehicleRotation rotation() {
         VehicleRotation r = new VehicleRotation(
@@ -46,18 +59,22 @@ class RotationEntryServiceTest {
 
     @Nested @DisplayName("save")
     class Save {
-        @Test @DisplayName("delegates to repo")
-        void delegates() {
+        @Test @DisplayName("sets company and delegates to repo")
+        void setsCompanyAndDelegates() {
             RotationEntry e = entry(1);
             when(repo.save(e)).thenReturn(e);
-            assertThat(sut.save(e)).isSameAs(e);
+
+            RotationEntry result = sut.save(e);
+
+            assertThat(result.getCompany()).isEqualTo(COMPANY);
+            verify(repo).save(e);
         }
     }
 
     @Nested @DisplayName("saveAll")
     class SaveAll {
-        @Test @DisplayName("sets rotation on every entry before persisting")
-        void setsRotationOnEntries() {
+        @Test @DisplayName("sets rotation and company on every entry before persisting")
+        void setsRotationAndCompanyOnEntries() {
             VehicleRotation r = rotation();
             RotationEntry e1 = entry(1);
             RotationEntry e2 = entry(2);
@@ -67,6 +84,8 @@ class RotationEntryServiceTest {
 
             assertThat(e1.getVehicleRotation()).isSameAs(r);
             assertThat(e2.getVehicleRotation()).isSameAs(r);
+            assertThat(e1.getCompany()).isEqualTo(COMPANY);
+            assertThat(e2.getCompany()).isEqualTo(COMPANY);
         }
 
         @Test @DisplayName("returns saved entries from repo")
@@ -80,27 +99,28 @@ class RotationEntryServiceTest {
 
     @Nested @DisplayName("findById")
     class FindById {
-        @Test @DisplayName("returns Optional from repo")
+        @Test @DisplayName("returns Optional from repo using tenant-scoped spec")
         void found() {
             RotationEntry e = entry(1);
-            when(repo.findById(1)).thenReturn(Optional.of(e));
+            when(repo.findOne(any(Specification.class))).thenReturn(Optional.of(e));
             assertThat(sut.findById(1)).contains(e);
         }
 
         @Test @DisplayName("returns empty when not found")
         void notFound() {
-            when(repo.findById(99)).thenReturn(Optional.empty());
+            when(repo.findOne(any(Specification.class))).thenReturn(Optional.empty());
             assertThat(sut.findById(99)).isEmpty();
         }
     }
 
     @Nested @DisplayName("findAll")
     class FindAll {
-        @Test @DisplayName("delegates to repo")
-        void delegates() {
+        @Test @DisplayName("scopes to current tenant")
+        void scopedToTenant() {
             List<RotationEntry> list = List.of(entry(1));
-            when(repo.findAll()).thenReturn(list);
+            when(repo.findAll(any(Specification.class))).thenReturn(list);
             assertThat(sut.findAll()).isSameAs(list);
+            verify(tenantService).currentCompanyId();
         }
     }
 

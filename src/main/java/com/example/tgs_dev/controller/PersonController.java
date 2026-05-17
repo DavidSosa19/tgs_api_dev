@@ -6,12 +6,14 @@ import com.example.tgs_dev.controller.response.PersonDTO;
 import com.example.tgs_dev.entity.Person;
 import com.example.tgs_dev.mapper.PersonMapper;
 import com.example.tgs_dev.repository.filter.FilterRequest;
+import com.example.tgs_dev.security.Permissions;
 import com.example.tgs_dev.service.PersonService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,21 +24,24 @@ import java.util.List;
 public class PersonController {
 
     private final PersonService personService;
-    private final PersonMapper personMapper;
+    private final PersonMapper  personMapper;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('" + Permissions.PERSON_READ + "')")
     public ResponseEntity<ApiResponse<List<PersonDTO>>> getAll() {
         List<PersonDTO> persons = personMapper.toDTOList(personService.findAll());
         return ResponseEntity.ok(ApiResponse.ok(persons));
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('" + Permissions.PERSON_READ + "')")
     public ResponseEntity<ApiResponse<PersonDTO>> getById(@PathVariable Integer id) {
         PersonDTO dto = personMapper.toDTO(personService.findById(id));
         return ResponseEntity.ok(ApiResponse.ok(dto));
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('" + Permissions.PERSON_WRITE + "')")
     public ResponseEntity<ApiResponse<PersonDTO>> create(@RequestBody @Valid PersonRequest request) {
         Person person = personMapper.toEntity(request);
         PersonDTO dto = personMapper.toDTO(personService.save(person));
@@ -45,6 +50,7 @@ public class PersonController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('" + Permissions.PERSON_WRITE + "')")
     public ResponseEntity<ApiResponse<PersonDTO>> update(@PathVariable Integer id,
                                                          @RequestBody @Valid PersonRequest request) {
         Person person = personService.findById(id);
@@ -54,12 +60,14 @@ public class PersonController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('" + Permissions.PERSON_WRITE + "')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Integer id) {
         personService.delete(personService.findById(id));
         return ResponseEntity.ok(ApiResponse.ok("Person deleted successfully", null));
     }
 
     @PostMapping("/filter")
+    @PreAuthorize("hasAuthority('" + Permissions.PERSON_READ + "')")
     public ResponseEntity<ApiResponse<Page<PersonDTO>>> filter(@RequestBody @Valid FilterRequest request) {
         Page<PersonDTO> page = personService.filter(request).map(personMapper::toDTO);
         return ResponseEntity.ok(ApiResponse.ok(page));

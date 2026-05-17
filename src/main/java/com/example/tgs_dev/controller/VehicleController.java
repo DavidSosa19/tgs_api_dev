@@ -7,6 +7,7 @@ import com.example.tgs_dev.entity.Person;
 import com.example.tgs_dev.entity.Vehicle;
 import com.example.tgs_dev.mapper.VehicleMapper;
 import com.example.tgs_dev.repository.filter.FilterRequest;
+import com.example.tgs_dev.security.Permissions;
 import com.example.tgs_dev.service.PersonService;
 import com.example.tgs_dev.service.VehicleService;
 import jakarta.validation.Valid;
@@ -14,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,22 +26,25 @@ import java.util.List;
 public class VehicleController {
 
     private final VehicleService vehicleService;
-    private final PersonService personService;
-    private final VehicleMapper vehicleMapper;
+    private final PersonService  personService;
+    private final VehicleMapper  vehicleMapper;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('" + Permissions.VEHICLE_READ + "')")
     public ResponseEntity<ApiResponse<List<VehicleDTO>>> getAll() {
         List<VehicleDTO> vehicles = vehicleMapper.toDTOList(vehicleService.findAll());
         return ResponseEntity.ok(ApiResponse.ok(vehicles));
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('" + Permissions.VEHICLE_READ + "')")
     public ResponseEntity<ApiResponse<VehicleDTO>> getById(@PathVariable Integer id) {
         VehicleDTO dto = vehicleMapper.toDTO(vehicleService.findById(id));
         return ResponseEntity.ok(ApiResponse.ok(dto));
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('" + Permissions.VEHICLE_WRITE + "')")
     public ResponseEntity<ApiResponse<VehicleDTO>> create(@RequestBody @Valid VehicleRequest request) {
         Vehicle vehicle = buildVehicle(request, new Vehicle());
         VehicleDTO dto = vehicleMapper.toDTO(vehicleService.save(vehicle));
@@ -48,6 +53,7 @@ public class VehicleController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('" + Permissions.VEHICLE_WRITE + "')")
     public ResponseEntity<ApiResponse<VehicleDTO>> update(@PathVariable Integer id,
                                                           @RequestBody @Valid VehicleRequest request) {
         Vehicle vehicle = buildVehicle(request, vehicleService.findById(id));
@@ -56,18 +62,20 @@ public class VehicleController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('" + Permissions.VEHICLE_WRITE + "')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Integer id) {
         vehicleService.delete(vehicleService.findById(id));
         return ResponseEntity.ok(ApiResponse.ok("Vehicle deleted successfully", null));
     }
 
     @PostMapping("/filter")
+    @PreAuthorize("hasAuthority('" + Permissions.VEHICLE_READ + "')")
     public ResponseEntity<ApiResponse<Page<VehicleDTO>>> filter(@RequestBody @Valid FilterRequest request) {
         Page<VehicleDTO> page = vehicleService.filter(request).map(vehicleMapper::toDTO);
         return ResponseEntity.ok(ApiResponse.ok(page));
     }
 
-    // ── helpers ─────────────────────────────────────────────────────────────
+    // ── helpers ───────────────────────────────────────────────────────────────
 
     private Vehicle buildVehicle(VehicleRequest request, Vehicle vehicle) {
         vehicle.setVehicleNumber(request.vehicleNumber());

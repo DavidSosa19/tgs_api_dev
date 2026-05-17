@@ -6,6 +6,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 
+import com.example.tgs_dev.entity.Company;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -30,6 +32,10 @@ public class Route extends BaseAudit implements Activatable {
 
     @Column(name="cycle_count")
     private int cycleCount;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
 
     public Route(String routeNumber, Integer baseDuration, int cycleCount) {
         this.routeNumber = routeNumber;

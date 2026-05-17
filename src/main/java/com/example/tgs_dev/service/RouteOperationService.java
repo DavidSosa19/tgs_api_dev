@@ -5,8 +5,10 @@ import com.example.tgs_dev.entity.RouteOperation;
 import com.example.tgs_dev.entity.VehicleAssignment;
 import com.example.tgs_dev.repository.RouteOperationRepository;
 import com.example.tgs_dev.repository.specification.CommonSpecifications;
+import com.example.tgs_dev.repository.specification.TenantSpecifications;
 import jakarta.transaction.Transactional;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -14,41 +16,49 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
-import org.springframework.data.jpa.domain.Specification;
-
 @Service
 public class RouteOperationService {
 
-    private final RouteOperationRepository routeOperationRepository;
-    private final VehicleAssignmentService vehicleAssignmentService;
+    private final RouteOperationRepository  routeOperationRepository;
+    private final VehicleAssignmentService  vehicleAssignmentService;
+    private final TenantService             tenantService;
 
     public RouteOperationService(RouteOperationRepository routeOperationRepository,
-                                 @Lazy VehicleAssignmentService vehicleAssignmentService) {
+                                 @Lazy VehicleAssignmentService vehicleAssignmentService,
+                                 TenantService tenantService) {
         this.routeOperationRepository = routeOperationRepository;
         this.vehicleAssignmentService = vehicleAssignmentService;
+        this.tenantService            = tenantService;
     }
 
-    public RouteOperation save(RouteOperation routeOperation){
+    public RouteOperation save(RouteOperation routeOperation) {
+        routeOperation.setCompany(tenantService.currentCompany());
         return routeOperationRepository.save(routeOperation);
     }
 
-    public RouteOperation findById(Integer id){
-        return routeOperationRepository.findById(id)
-                .orElseThrow(()-> new NoSuchElementException("notFound.routeOperation|" + id));
+    public RouteOperation findById(Integer id) {
+        return routeOperationRepository.findOne(
+                Specification.<RouteOperation>where(CommonSpecifications.fieldEquals("id", id))
+                             .and(TenantSpecifications.belongsToCompany(tenantService.currentCompanyId()))
+        ).orElseThrow(() -> new NoSuchElementException("notFound.routeOperation|" + id));
     }
 
-    public List<RouteOperation> findAll(){
-        return routeOperationRepository.findAll();
+    public List<RouteOperation> findAll() {
+        return routeOperationRepository.findAll(
+                TenantSpecifications.belongsToCompany(tenantService.currentCompanyId()));
     }
 
-    public List<RouteOperation> findAllByDate(LocalDate date){
-        return routeOperationRepository.findAll(CommonSpecifications.fieldEquals("serviceDate",date));
+    public List<RouteOperation> findAllByDate(LocalDate date) {
+        return routeOperationRepository.findAll(
+                CommonSpecifications.<RouteOperation>fieldEquals("serviceDate", date)
+                                    .and(TenantSpecifications.belongsToCompany(tenantService.currentCompanyId())));
     }
 
     public Optional<RouteOperation> findByRouteAndDate(Route route, LocalDate date) {
-        Specification<RouteOperation> byRoute = CommonSpecifications.fieldEquals("route", route);
-        Specification<RouteOperation> byDate = CommonSpecifications.fieldEquals("serviceDate", date);
-        return routeOperationRepository.findOne(byRoute.and(byDate));
+        return routeOperationRepository.findOne(
+                CommonSpecifications.<RouteOperation>fieldEquals("route", route)
+                                    .and(CommonSpecifications.fieldEquals("serviceDate", date))
+                                    .and(TenantSpecifications.belongsToCompany(tenantService.currentCompanyId())));
     }
 
     @Transactional
@@ -70,7 +80,7 @@ public class RouteOperationService {
     }
 
     @Transactional
-    public RouteOperation initRoutOperation(Route route, LocalDate date){
+    public RouteOperation initRoutOperation(Route route, LocalDate date) {
         RouteOperation newRouteOperation = new RouteOperation(route, date);
         return save(newRouteOperation);
     }

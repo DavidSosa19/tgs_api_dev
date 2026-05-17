@@ -1,9 +1,11 @@
 package com.example.tgs_dev.service;
 
 import com.example.tgs_dev.controller.exception.ResourceNotFoundException;
+import com.example.tgs_dev.entity.Company;
 import com.example.tgs_dev.entity.Person;
 import com.example.tgs_dev.repository.PersonRepository;
 import com.example.tgs_dev.repository.filter.FilterRequest;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -27,7 +29,16 @@ import static org.mockito.Mockito.*;
 class PersonServiceTest {
 
     @Mock PersonRepository repo;
+    @Mock TenantService    tenantService;
     @InjectMocks PersonService sut;
+
+    private static final int COMPANY_ID = 1;
+
+    private Company company() {
+        Company c = new Company("ACME", "NIT-1");
+        c.setId(COMPANY_ID);
+        return c;
+    }
 
     private Person person() {
         Person p = new Person("DOC", "John", null, "Doe", null);
@@ -35,28 +46,39 @@ class PersonServiceTest {
         return p;
     }
 
+    @BeforeEach
+    void stubTenant() {
+        lenient().when(tenantService.currentCompanyId()).thenReturn(COMPANY_ID);
+        lenient().when(tenantService.currentCompany()).thenReturn(company());
+    }
+
     @Nested @DisplayName("save")
     class Save {
-        @Test @DisplayName("delegates to repo and returns saved entity")
-        void delegates() {
+        @Test @DisplayName("stampa la empresa del tenant y delega en repo")
+        void stampsTenantCompanyAndSaves() {
             Person p = person();
             when(repo.save(p)).thenReturn(p);
-            assertThat(sut.save(p)).isSameAs(p);
+
+            Person result = sut.save(p);
+
+            assertThat(result).isSameAs(p);
+            assertThat(p.getCompany().getId()).isEqualTo(COMPANY_ID);
+            verify(repo).save(p);
         }
     }
 
     @Nested @DisplayName("findById")
     class FindById {
-        @Test @DisplayName("returns entity when found")
+        @Test @DisplayName("retorna entidad cuando existe en el tenant")
         void found() {
             Person p = person();
-            when(repo.findById(1)).thenReturn(Optional.of(p));
+            when(repo.findOne(any(Specification.class))).thenReturn(Optional.of(p));
             assertThat(sut.findById(1)).isSameAs(p);
         }
 
-        @Test @DisplayName("throws ResourceNotFoundException when not found")
+        @Test @DisplayName("lanza ResourceNotFoundException cuando no existe")
         void notFound() {
-            when(repo.findById(99)).thenReturn(Optional.empty());
+            when(repo.findOne(any(Specification.class))).thenReturn(Optional.empty());
             assertThatThrownBy(() -> sut.findById(99))
                     .isInstanceOf(ResourceNotFoundException.class);
         }
@@ -64,14 +86,14 @@ class PersonServiceTest {
 
     @Nested @DisplayName("findByDocumentNumber")
     class FindByDocumentNumber {
-        @Test @DisplayName("returns Optional from repo")
+        @Test @DisplayName("retorna Optional con la persona cuando existe")
         void delegates() {
             Person p = person();
             when(repo.findOne(any(Specification.class))).thenReturn(Optional.of(p));
             assertThat(sut.findByDocumentNumber("DOC")).contains(p);
         }
 
-        @Test @DisplayName("returns empty when not found")
+        @Test @DisplayName("retorna Optional vacío cuando no existe")
         void empty() {
             when(repo.findOne(any(Specification.class))).thenReturn(Optional.empty());
             assertThat(sut.findByDocumentNumber("NONE")).isEmpty();
@@ -80,17 +102,17 @@ class PersonServiceTest {
 
     @Nested @DisplayName("findAll")
     class FindAll {
-        @Test @DisplayName("delegates to repo")
-        void delegates() {
+        @Test @DisplayName("filtra por tenant y retorna lista")
+        void filtersByTenant() {
             List<Person> list = List.of(person());
-            when(repo.findAll()).thenReturn(list);
+            when(repo.findAll(any(Specification.class))).thenReturn(list);
             assertThat(sut.findAll()).isSameAs(list);
         }
     }
 
     @Nested @DisplayName("delete")
     class Delete {
-        @Test @DisplayName("calls softDelete on repo")
+        @Test @DisplayName("delega softDelete al repositorio")
         void delegates() {
             Person p = person();
             sut.delete(p);
@@ -100,11 +122,11 @@ class PersonServiceTest {
 
     @Nested @DisplayName("filter")
     class Filter {
-        @Test @DisplayName("delegates to repo with pageable derived from request")
+        @Test @DisplayName("llama al repo con la spec de tenant adicional")
         void delegates() {
             FilterRequest req = new FilterRequest(List.of(), null, "id", "ASC", 0, 10);
             Page<Person> page = new PageImpl<>(List.of(person()));
-            when(repo.filter(eq(req), any())).thenReturn(page);
+            when(repo.filter(eq(req), any(), any(Specification.class))).thenReturn(page);
             assertThat(sut.filter(req)).isSameAs(page);
         }
     }

@@ -6,6 +6,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 
+import com.example.tgs_dev.entity.Company;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -31,6 +33,10 @@ public class Vehicle extends BaseAudit implements Activatable {
 
     @Column(name="active", nullable = false)
     private Boolean active = true;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
 
     public Vehicle(String vehicleNumber, Person owner) {
         this.vehicleNumber = vehicleNumber;

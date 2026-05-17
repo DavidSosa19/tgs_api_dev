@@ -2,10 +2,12 @@ package com.example.tgs_dev.controller;
 
 import com.example.tgs_dev.controller.exception.ConstraintMessageResolver;
 import com.example.tgs_dev.controller.exception.GlobalExceptionHandler;
+import com.example.tgs_dev.controller.exception.ResourceNotFoundException;
 import com.example.tgs_dev.entity.Route;
 import com.example.tgs_dev.entity.RouteOperation;
 import com.example.tgs_dev.service.OperationOrchestratorService;
 import com.example.tgs_dev.service.RouteOperationService;
+import com.example.tgs_dev.service.RouteService;
 import com.example.tgs_dev.service.VehicleRemovalService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -27,7 +29,6 @@ import java.util.NoSuchElementException;
 
 import static com.example.tgs_dev.TestFixtures.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -46,6 +47,7 @@ class OperationControllerTest {
     @Mock OperationOrchestratorService orchestratorService;
     @Mock RouteOperationService        routeOperationService;
     @Mock VehicleRemovalService        vehicleRemovalService;
+    @Mock RouteService                 routeService;
     @Mock ConstraintMessageResolver    constraintResolver;
 
     MockMvc mockMvc;
@@ -55,7 +57,7 @@ class OperationControllerTest {
     @BeforeEach
     void setUp() {
         OperationController controller = new OperationController(
-                orchestratorService, routeOperationService, vehicleRemovalService);
+                orchestratorService, routeOperationService, vehicleRemovalService, routeService);
 
         GlobalExceptionHandler exHandler = new GlobalExceptionHandler(constraintResolver);
 
@@ -75,17 +77,33 @@ class OperationControllerTest {
     // ── POST / ────────────────────────────────────────────────────────────────
     @Test @DisplayName("POST / → 201 with initialized message key")
     void create_returns201() throws Exception {
+        Route route = route(1, "1");
+        when(routeService.findById(1)).thenReturn(route);
+
         mockMvc.perform(post(BASE)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                            {"route":{"id":1,"routeNumber":"1","baseDuration":30,"cycleCount":3},\
-                            "date":"2024-01-15"}
+                            {"routeId":1,"date":"2024-01-15"}
                             """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("routes.initialized.success"));
 
-        verify(orchestratorService).initOperation(any(Route.class), eq(LocalDate.of(2024, 1, 15)));
+        verify(orchestratorService).initOperation(route, LocalDate.of(2024, 1, 15));
+    }
+
+    @Test @DisplayName("POST / with unknown routeId → 404")
+    void create_unknownRoute_returns404() throws Exception {
+        when(routeService.findById(99))
+                .thenThrow(new ResourceNotFoundException("notFound.route|99"));
+
+        mockMvc.perform(post(BASE)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"routeId":99,"date":"2024-01-15"}
+                            """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
     }
 
     // ── POST /all ─────────────────────────────────────────────────────────────
@@ -94,7 +112,7 @@ class OperationControllerTest {
         mockMvc.perform(post(BASE + "/all")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                            {"route":null,"date":"2024-01-15"}
+                            {"date":"2024-01-15"}
                             """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.message").value("routes.initialized.success"));

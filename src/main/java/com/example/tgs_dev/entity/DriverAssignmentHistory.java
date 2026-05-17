@@ -19,6 +19,10 @@ public class DriverAssignmentHistory extends BaseAudit{
     @Column(name="id")
     private Integer id;
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "driver_id", nullable = false)
     private Person driver;

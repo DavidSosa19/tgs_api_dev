@@ -24,12 +24,32 @@ target/
 .env
 .env.*
 *.env
+# Spring config files — use application.properties.example as reference
 src/main/resources/application.properties
 src/main/resources/application.yml
+# Profile-specific configs (may contain credentials)
+src/main/resources/application-*.properties
+src/main/resources/application-*.yml
 application-local.properties
 application-local.yml
 application-secret.properties
 application-secret.yml
+
+# ── SSL / Certificates ────────────────────────────────────────────────────────
+*.jks
+*.p12
+*.keystore
+*.pem
+*.key
+*.crt
+*.cer
+
+# ── SonarQube local cache ─────────────────────────────────────────────────────
+.sonar/
+sonar-project.properties
+
+# ── Generated Spring Boot help ────────────────────────────────────────────────
+HELP.md
 
 # ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store

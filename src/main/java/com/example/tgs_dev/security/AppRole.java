@@ -1,30 +1,19 @@
 package com.example.tgs_dev.security;
 
-import java.util.Arrays;
-
 /**
- * Single source of truth for application roles.
+ * Constantes de nombres de roles.
  *
- * Adding a role: declare a new constant here.
- * Changing permissions: update SecurityConfig.filterChain — one place only.
+ * Cada constante coincide con el campo 'name' de core.app_role.
+ * Agregar un rol: declarar la constante aquí + INSERT en core.app_role
+ *                 + asignar permisos en core.role_permission.
  *
- * Spring Security expects role names WITHOUT the "ROLE_" prefix in
- * hasRole() / hasAnyRole(); the prefix is added automatically by the framework.
+ * Los roles ya no están hardcodeados en Spring Security — el control
+ * granular se hace mediante permisos individuales en @PreAuthorize.
  */
-public enum AppRole {
+public final class AppRole {
 
-    ADMIN,
-    USER;
+    private AppRole() {}
 
-    /** Role name as Spring Security's hasRole/hasAnyRole expect it. */
-    public String value() {
-        return name();
-    }
-
-    /** Utility to get string values for multiple roles at once (for hasAnyRole). */
-    public static String[] valuesOf(AppRole... roles) {
-        return Arrays.stream(roles)
-                .map(AppRole::value)
-                .toArray(String[]::new);
-    }
+    public static final String ADMIN = "ADMIN";
+    public static final String USER  = "USER";
 }

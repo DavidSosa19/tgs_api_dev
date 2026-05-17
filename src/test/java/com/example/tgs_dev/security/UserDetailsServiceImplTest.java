@@ -1,7 +1,6 @@
 package com.example.tgs_dev.security;
 
 import com.example.tgs_dev.entity.User;
-import com.example.tgs_dev.entity.enums.Role;
 import com.example.tgs_dev.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -13,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
+import java.util.HashSet;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -29,7 +29,7 @@ class UserDetailsServiceImplTest {
         return User.builder()
                 .userName(username)
                 .password("encoded-password")
-                .rol(Role.USER)
+                .roles(new HashSet<>())
                 .active(true)
                 .build();
     }
@@ -37,7 +37,7 @@ class UserDetailsServiceImplTest {
     @Nested @DisplayName("loadUserByUsername")
     class LoadUserByUsername {
 
-        @Test @DisplayName("returns UserDetails when user is found")
+        @Test @DisplayName("retorna UserDetails cuando el usuario existe")
         void found_returnsUserDetails() {
             User u = user("jdoe");
             when(userRepository.findByUserName("jdoe")).thenReturn(Optional.of(u));
@@ -48,7 +48,7 @@ class UserDetailsServiceImplTest {
             assertThat(result.getPassword()).isEqualTo("encoded-password");
         }
 
-        @Test @DisplayName("throws UsernameNotFoundException when user is not found")
+        @Test @DisplayName("lanza UsernameNotFoundException cuando el usuario no existe")
         void notFound_throwsUsernameNotFoundException() {
             when(userRepository.findByUserName("ghost")).thenReturn(Optional.empty());
 

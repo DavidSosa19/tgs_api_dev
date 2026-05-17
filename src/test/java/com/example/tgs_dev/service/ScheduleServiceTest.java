@@ -17,6 +17,7 @@ import java.util.List;
 
 import static com.example.tgs_dev.TestFixtures.*;
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 
 /**
@@ -30,19 +31,21 @@ import static org.mockito.Mockito.verify;
 class ScheduleServiceTest {
 
     @Mock ScheduleRepository repo;
+    @Mock TenantService      tenantService;
     @InjectMocks ScheduleService sut;
 
-    private RouteOperation   op;
+    private static final Company COMPANY = company(1, "Test Corp");
+
+    private RouteOperation    op;
     private VehicleAssignment va;
 
     @BeforeEach
     void setUp() {
-        /*baseDuration=*/
-        /*cycleCount=*/
+        lenient().when(tenantService.currentCompany()).thenReturn(COMPANY);
         Route route = route(1, "1", /*baseDuration=*/30, /*cycleCount=*/3);
         ScheduleTemplate template = template(100, route, LocalTime.of(6, 0));
-        op       = operation(1, route, OP_DATE);
-        va       = assignment(1, op, vehicle(10, "V-001"), template, 1);
+        op = operation(1, route, OP_DATE);
+        va = assignment(1, op, vehicle(10, "V-001"), template, 1);
     }
 
     @Test @DisplayName("generates exactly cycleCount schedules per assignment")

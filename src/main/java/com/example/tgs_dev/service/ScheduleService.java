@@ -1,5 +1,6 @@
 package com.example.tgs_dev.service;
 
+import com.example.tgs_dev.entity.Company;
 import com.example.tgs_dev.entity.Route;
 import com.example.tgs_dev.entity.Schedule;
 import com.example.tgs_dev.entity.ScheduleTemplate;
@@ -17,9 +18,11 @@ import java.util.Optional;
 public class ScheduleService {
 
     private final ScheduleRepository scheduleRepository;
+    private final TenantService      tenantService;
 
-    public ScheduleService(ScheduleRepository scheduleRepository) {
+    public ScheduleService(ScheduleRepository scheduleRepository, TenantService tenantService) {
         this.scheduleRepository = scheduleRepository;
+        this.tenantService      = tenantService;
     }
 
     public List<Schedule> findAll(){ return scheduleRepository.findAll(); }
@@ -50,6 +53,7 @@ public class ScheduleService {
         return scheduleRepository.saveAll(schedules);
     }
     public void calculateVehicleSchedules(List<VehicleAssignment> assignments){
+        Company company = tenantService.currentCompany();
         List<Schedule> schedules = new ArrayList<>();
         for(VehicleAssignment assignment: assignments){
             ScheduleTemplate template = assignment.getScheduleTemplate();
@@ -59,7 +63,8 @@ public class ScheduleService {
             int baseCycleCount = currentRoute.getCycleCount();
             LocalTime time = startTime;
             for (int i = 0; i < baseCycleCount; i++) {
-                Schedule newSchedule = new Schedule(assignment, i + 1,time);
+                Schedule newSchedule = new Schedule(assignment, i + 1, time);
+                newSchedule.setCompany(company);
                 schedules.add(newSchedule);
                 time = time.plusMinutes(durationMinutes);
             }

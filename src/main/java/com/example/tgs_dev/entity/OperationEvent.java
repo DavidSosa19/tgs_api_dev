@@ -23,6 +23,10 @@ public class OperationEvent extends BaseAudit{
     @Column(name="id")
     private Integer id;
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "route_operation_id", nullable = false)
     private RouteOperation routeOperation;

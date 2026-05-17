@@ -7,6 +7,7 @@ import com.example.tgs_dev.entity.Route;
 import com.example.tgs_dev.entity.ScheduleTemplate;
 import com.example.tgs_dev.mapper.ScheduleTemplateMapper;
 import com.example.tgs_dev.repository.filter.FilterRequest;
+import com.example.tgs_dev.security.Permissions;
 import com.example.tgs_dev.service.RouteService;
 import com.example.tgs_dev.service.ScheduleTemplateService;
 import jakarta.validation.Valid;
@@ -14,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,18 +30,21 @@ public class ScheduleTemplateController {
     private final ScheduleTemplateMapper scheduleTemplateMapper;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('" + Permissions.SCHEDULE_TEMPLATE_READ + "')")
     public ResponseEntity<ApiResponse<List<ScheduleTemplateDTO>>> getAll() {
         List<ScheduleTemplateDTO> templates = scheduleTemplateMapper.toDTOList(scheduleTemplateService.findAll());
         return ResponseEntity.ok(ApiResponse.ok(templates));
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('" + Permissions.SCHEDULE_TEMPLATE_READ + "')")
     public ResponseEntity<ApiResponse<ScheduleTemplateDTO>> getById(@PathVariable Integer id) {
         ScheduleTemplateDTO dto = scheduleTemplateMapper.toDTO(scheduleTemplateService.findById(id));
         return ResponseEntity.ok(ApiResponse.ok(dto));
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('" + Permissions.SCHEDULE_TEMPLATE_WRITE + "')")
     public ResponseEntity<ApiResponse<ScheduleTemplateDTO>> create(@RequestBody @Valid ScheduleTemplateRequest request) {
         ScheduleTemplate template = buildTemplate(request, new ScheduleTemplate());
         ScheduleTemplateDTO dto = scheduleTemplateMapper.toDTO(scheduleTemplateService.save(template));
@@ -48,6 +53,7 @@ public class ScheduleTemplateController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('" + Permissions.SCHEDULE_TEMPLATE_WRITE + "')")
     public ResponseEntity<ApiResponse<ScheduleTemplateDTO>> update(@PathVariable Integer id,
                                                                     @RequestBody @Valid ScheduleTemplateRequest request) {
         ScheduleTemplate template = scheduleTemplateService.findById(id);
@@ -61,12 +67,14 @@ public class ScheduleTemplateController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('" + Permissions.SCHEDULE_TEMPLATE_WRITE + "')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Integer id) {
         scheduleTemplateService.delete(scheduleTemplateService.findById(id));
         return ResponseEntity.ok(ApiResponse.ok("Template deleted successfully", null));
     }
 
     @PostMapping("/filter")
+    @PreAuthorize("hasAuthority('" + Permissions.SCHEDULE_TEMPLATE_READ + "')")
     public ResponseEntity<ApiResponse<Page<ScheduleTemplateDTO>>> filter(@RequestBody @Valid FilterRequest request) {
         Page<ScheduleTemplateDTO> page = scheduleTemplateService.filter(request).map(scheduleTemplateMapper::toDTO);
         return ResponseEntity.ok(ApiResponse.ok(page));

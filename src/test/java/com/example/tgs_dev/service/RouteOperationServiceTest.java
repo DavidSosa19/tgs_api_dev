@@ -1,5 +1,6 @@
 package com.example.tgs_dev.service;
 
+import com.example.tgs_dev.entity.Company;
 import com.example.tgs_dev.entity.Route;
 import com.example.tgs_dev.entity.RouteOperation;
 import com.example.tgs_dev.entity.VehicleAssignment;
@@ -38,8 +39,12 @@ class RouteOperationServiceTest {
 
     @Mock RouteOperationRepository repo;
     @Mock VehicleAssignmentService vehicleAssignmentService;
+    @Mock TenantService            tenantService;
 
     @InjectMocks RouteOperationService sut;
+
+    private static final int     COMPANY_ID = 1;
+    private static final Company COMPANY    = company(COMPANY_ID, "Test Corp");
 
     private Route          route;
     private RouteOperation op;
@@ -48,6 +53,8 @@ class RouteOperationServiceTest {
     void setUp() {
         route = route(1, "1");
         op    = operation(1, route, OP_DATE);
+        lenient().when(tenantService.currentCompanyId()).thenReturn(COMPANY_ID);
+        lenient().when(tenantService.currentCompany()).thenReturn(COMPANY);
     }
 
     // ── findById ──────────────────────────────────────────────────────────────
@@ -56,13 +63,13 @@ class RouteOperationServiceTest {
 
         @Test @DisplayName("returns entity when present")
         void returnsWhenFound() {
-            when(repo.findById(1)).thenReturn(Optional.of(op));
+            when(repo.findOne(any(Specification.class))).thenReturn(Optional.of(op));
             assertThat(sut.findById(1)).isSameAs(op);
         }
 
         @Test @DisplayName("throws NoSuchElementException with the id in the message")
         void throwsWithId() {
-            when(repo.findById(99)).thenReturn(Optional.empty());
+            when(repo.findOne(any(Specification.class))).thenReturn(Optional.empty());
             assertThatThrownBy(() -> sut.findById(99))
                     .isInstanceOf(NoSuchElementException.class)
                     .hasMessageContaining("99");
@@ -131,7 +138,7 @@ class RouteOperationServiceTest {
     @Nested @DisplayName("initRoutOperation")
     class InitRoutOperation {
 
-        @Test @DisplayName("creates a RouteOperation with the correct route and date")
+        @Test @DisplayName("creates a RouteOperation with correct route, date and company")
         void createsWithCorrectFields() {
             LocalDate targetDate = LocalDate.of(2024, 3, 10);
             when(repo.save(any(RouteOperation.class))).thenAnswer(inv -> {
@@ -144,6 +151,7 @@ class RouteOperationServiceTest {
 
             assertThat(result.getRoute()).isEqualTo(route);
             assertThat(result.getServiceDate()).isEqualTo(targetDate);
+            assertThat(result.getCompany()).isEqualTo(COMPANY);
         }
     }
 }

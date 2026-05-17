@@ -7,6 +7,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.support.JpaEntityInformation;
 import org.springframework.data.jpa.repository.support.SimpleJpaRepository;
 
@@ -28,6 +29,11 @@ public class BaseRepositoryImpl<T, I extends Serializable>
     @Override
     public Page<T> filter(FilterRequest request, Pageable pageable) {
         return findAll(new GenericSpecification<>(request), pageable);
+    }
+
+    @Override
+    public Page<T> filter(FilterRequest request, Pageable pageable, Specification<T> extra) {
+        return findAll(Specification.where(new GenericSpecification<T>(request)).and(extra), pageable);
     }
 
     /**

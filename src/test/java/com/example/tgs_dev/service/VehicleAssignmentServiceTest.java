@@ -16,6 +16,7 @@ import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 
 import static com.example.tgs_dev.TestFixtures.*;
 import static org.assertj.core.api.Assertions.*;
@@ -33,8 +34,12 @@ import static org.mockito.Mockito.*;
 class VehicleAssignmentServiceTest {
 
     @Mock VehicleAssignmentRepository repo;
+    @Mock TenantService               tenantService;
 
     @InjectMocks VehicleAssignmentService sut;
+
+    private static final int     COMPANY_ID = 1;
+    private static final Company COMPANY    = company(COMPANY_ID, "Test Corp");
 
     private RouteOperation   op;
     private Vehicle          vehicle;
@@ -46,6 +51,26 @@ class VehicleAssignmentServiceTest {
         op       = operation(1, route, OP_DATE);
         vehicle  = vehicle(10, "V-001");
         template = template(100, route, LocalTime.of(6, 0));
+        lenient().when(tenantService.currentCompanyId()).thenReturn(COMPANY_ID);
+        lenient().when(tenantService.currentCompany()).thenReturn(COMPANY);
+    }
+
+    // ── findById ──────────────────────────────────────────────────────────────
+    @Nested @DisplayName("findById")
+    class FindById {
+
+        @Test @DisplayName("returns entity scoped to current tenant")
+        void returnsWhenFound() {
+            VehicleAssignment va = assignment(1, op, vehicle, template, 1);
+            when(repo.findOne(any(Specification.class))).thenReturn(Optional.of(va));
+            assertThat(sut.findById(1)).contains(va);
+        }
+
+        @Test @DisplayName("returns empty when not found (different company blocked)")
+        void returnsEmptyWhenNotFound() {
+            when(repo.findOne(any(Specification.class))).thenReturn(Optional.empty());
+            assertThat(sut.findById(99)).isEmpty();
+        }
     }
 
     // ── softDelete ─────────────────────────────────────────────────────────────
@@ -157,6 +182,17 @@ class VehicleAssignmentServiceTest {
             verify(repo).saveAll(captor.capture());
             assertThat(captor.getValue().get(0).getVehicle()).isEqualTo(vehicle);
             assertThat(captor.getValue().get(1).getVehicle()).isEqualTo(v2);
+        }
+
+        @Test @DisplayName("company is stamped on every created assignment")
+        void companyIsStampedOnAssignments() {
+            when(repo.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            sut.assignVehicles(List.of(entry(vehicle, template)), op);
+
+            ArgumentCaptor<List<VehicleAssignment>> captor = ArgumentCaptor.forClass(List.class);
+            verify(repo).saveAll(captor.capture());
+            assertThat(captor.getValue().get(0).getCompany()).isEqualTo(COMPANY);
         }
 
         @Test @DisplayName("empty entry list produces no assignments")

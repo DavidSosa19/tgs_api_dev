@@ -14,6 +14,12 @@ public final class TestFixtures {
 
     private TestFixtures() {}
 
+    public static Company company(int id, String name) {
+        Company c = new Company(name, "900000001-" + id);
+        c.setId(id);
+        return c;
+    }
+
     public static Route route(int id, String number) {
         Route r = new Route(number, 30, 3);
         r.setId(id);

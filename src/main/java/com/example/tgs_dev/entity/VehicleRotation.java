@@ -8,6 +8,7 @@ import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDate;
 import java.util.List;
+import com.example.tgs_dev.entity.Company;
 
 @Getter
 @Setter
@@ -37,6 +38,10 @@ public class VehicleRotation extends BaseAudit implements Activatable {
 
     @OneToMany(mappedBy = "vehicleRotation", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RotationEntry> entries;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
 
     public VehicleRotation(LocalDate startDate, LocalDate endDate, Boolean active, ShiftDayType rotationType) {
         this.startDate = startDate;
