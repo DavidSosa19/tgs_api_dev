@@ -47,6 +47,14 @@ application-secret.yml
 *.crt
 *.cer
 
+# ── Claude Code local config ──────────────────────────────────────────────────
+.claude/
+
+# ── Test resources (may contain DB credentials) ───────────────────────────────
+src/test/resources/application*.properties
+src/test/resources/application*.yml
+src/test/resources/*.env
+
 # ── SonarQube local cache ─────────────────────────────────────────────────────
 .sonar/
 sonar-project.properties

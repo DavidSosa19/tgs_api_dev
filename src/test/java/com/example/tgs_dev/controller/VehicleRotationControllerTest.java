@@ -124,7 +124,7 @@ class VehicleRotationControllerTest {
             VehicleRotation r = rotation(1);
             Vehicle testVehicle = new Vehicle("V-1", null);
             testVehicle.setId(1);
-            Route testRoute = new Route("R-1", 30, 3);
+            Route testRoute = new Route("");
             ScheduleTemplate testTemplate = new ScheduleTemplate(testRoute, "T-1", "Template 1", LocalTime.of(6, 0));
             testTemplate.setId(1);
             when(rotationMapper.toEntity(any())).thenReturn(r);
@@ -166,7 +166,7 @@ class VehicleRotationControllerTest {
             List<RotationEntry> existing = List.of();
             Vehicle testVehicle = new Vehicle("V-1", null);
             testVehicle.setId(1);
-            Route testRoute = new Route("R-1", 30, 3);
+            Route testRoute = new Route("");
             ScheduleTemplate testTemplate = new ScheduleTemplate(testRoute, "T-1", "Template 1", LocalTime.of(6, 0));
             testTemplate.setId(1);
             when(vehicleRotationService.findById(1)).thenReturn(r);

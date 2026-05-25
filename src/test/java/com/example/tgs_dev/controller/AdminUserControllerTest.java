@@ -59,15 +59,20 @@ class AdminUserControllerTest {
                 true, 1, "Company 1", null);
     }
 
+    private UserAdminDTO inactiveDto(int id) {
+        return new UserAdminDTO((long) id, "user" + id, List.of("USER"),
+                false, 1, "Company 1", null);
+    }
+
     // ── GET / ─────────────────────────────────────────────────────────────────
 
     @Nested
     @DisplayName("GET /")
     class GetAll {
         @Test
-        @DisplayName("200 with user list")
+        @DisplayName("200 with user list including inactive")
         void ok() throws Exception {
-            when(adminUserService.findAll()).thenReturn(List.of(dto(1), dto(2)));
+            when(adminUserService.findAll()).thenReturn(List.of(dto(1), inactiveDto(2)));
             mockMvc.perform(get(BASE))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.length()").value(2));
@@ -97,16 +102,25 @@ class AdminUserControllerTest {
         @Test
         @DisplayName("200 when found")
         void found() throws Exception {
-            when(adminUserService.findById(1)).thenReturn(dto(1));
+            when(adminUserService.findById(1L)).thenReturn(dto(1));
             mockMvc.perform(get(BASE + "/1"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.id").value(1));
         }
 
         @Test
+        @DisplayName("200 when found and inactive")
+        void foundInactive() throws Exception {
+            when(adminUserService.findById(2L)).thenReturn(inactiveDto(2));
+            mockMvc.perform(get(BASE + "/2"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.active").value(false));
+        }
+
+        @Test
         @DisplayName("404 when not found")
         void notFound() throws Exception {
-            when(adminUserService.findById(99))
+            when(adminUserService.findById(99L))
                     .thenThrow(new ResourceNotFoundException("notFound.user|99"));
             mockMvc.perform(get(BASE + "/99"))
                     .andExpect(status().isNotFound());
@@ -161,7 +175,7 @@ class AdminUserControllerTest {
                                   "firstName": "John",
                                   "firstLastName": "Doe"
                                 }"""))
-                    .andExpect(status().isUnprocessableEntity());
+                    .andExpect(status().is(422));
         }
 
         @Test
@@ -178,7 +192,7 @@ class AdminUserControllerTest {
                                   "roleId": 1,
                                   "personId": 5
                                 }"""))
-                    .andExpect(status().isUnprocessableEntity());
+                    .andExpect(status().is(422));
         }
     }
 
@@ -188,12 +202,22 @@ class AdminUserControllerTest {
     @DisplayName("PUT /{id}")
     class Update {
         @Test
-        @DisplayName("200 with updated user")
+        @DisplayName("200 with updated user (no password change)")
         void updated() throws Exception {
-            when(adminUserService.update(eq(1), any())).thenReturn(dto(1));
+            when(adminUserService.update(eq(1L), any())).thenReturn(dto(1));
             mockMvc.perform(put(BASE + "/1").contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                 {"roleId":1,"active":true}"""))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("200 with updated user and new password")
+        void updatedWithPassword() throws Exception {
+            when(adminUserService.update(eq(1L), any())).thenReturn(dto(1));
+            mockMvc.perform(put(BASE + "/1").contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                {"roleId":1,"active":true,"newPassword":"newpass123"}"""))
                     .andExpect(status().isOk());
         }
 
@@ -202,6 +226,15 @@ class AdminUserControllerTest {
         void validationFails() throws Exception {
             mockMvc.perform(put(BASE + "/1").contentType(MediaType.APPLICATION_JSON)
                             .content("{}"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("400 when new password too short")
+        void passwordTooShort() throws Exception {
+            mockMvc.perform(put(BASE + "/1").contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                {"roleId":1,"active":true,"newPassword":"short"}"""))
                     .andExpect(status().isBadRequest());
         }
     }
@@ -214,17 +247,17 @@ class AdminUserControllerTest {
         @Test
         @DisplayName("200 when deactivated")
         void deactivated() throws Exception {
-            doNothing().when(adminUserService).deactivate(1);
+            doNothing().when(adminUserService).deactivate(1L);
             mockMvc.perform(delete(BASE + "/1"))
                     .andExpect(status().isOk());
-            verify(adminUserService).deactivate(1);
+            verify(adminUserService).deactivate(1L);
         }
 
         @Test
         @DisplayName("404 when user not found")
         void notFound() throws Exception {
             doThrow(new ResourceNotFoundException("notFound.user|99"))
-                    .when(adminUserService).deactivate(99);
+                    .when(adminUserService).deactivate(99L);
             mockMvc.perform(delete(BASE + "/99"))
                     .andExpect(status().isNotFound());
         }
@@ -233,8 +266,41 @@ class AdminUserControllerTest {
         @DisplayName("403 when service throws AccessDeniedException")
         void accessDenied() throws Exception {
             doThrow(new AccessDeniedException("admin.access.denied"))
-                    .when(adminUserService).deactivate(1);
+                    .when(adminUserService).deactivate(1L);
             mockMvc.perform(delete(BASE + "/1"))
+                    .andExpect(status().isForbidden());
+        }
+    }
+
+    // ── PATCH /{id}/reactivate ────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("PATCH /{id}/reactivate")
+    class Reactivate {
+        @Test
+        @DisplayName("200 when reactivated")
+        void reactivated() throws Exception {
+            doNothing().when(adminUserService).reactivate(2L);
+            mockMvc.perform(patch(BASE + "/2/reactivate"))
+                    .andExpect(status().isOk());
+            verify(adminUserService).reactivate(2L);
+        }
+
+        @Test
+        @DisplayName("404 when user not found")
+        void notFound() throws Exception {
+            doThrow(new ResourceNotFoundException("notFound.user|99"))
+                    .when(adminUserService).reactivate(99L);
+            mockMvc.perform(patch(BASE + "/99/reactivate"))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @DisplayName("403 when service throws AccessDeniedException")
+        void accessDenied() throws Exception {
+            doThrow(new AccessDeniedException("admin.access.denied"))
+                    .when(adminUserService).reactivate(1L);
+            mockMvc.perform(patch(BASE + "/1/reactivate"))
                     .andExpect(status().isForbidden());
         }
     }

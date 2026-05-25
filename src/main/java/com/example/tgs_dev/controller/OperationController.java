@@ -3,8 +3,8 @@ package com.example.tgs_dev.controller;
 import com.example.tgs_dev.controller.response.ApiResponse;
 import com.example.tgs_dev.controller.request.InitOperationRequest;
 import com.example.tgs_dev.controller.request.RemoveVehicleRequest;
+import com.example.tgs_dev.controller.response.RouteOperationDTO;
 import com.example.tgs_dev.entity.Route;
-import com.example.tgs_dev.entity.RouteOperation;
 import com.example.tgs_dev.security.Permissions;
 import com.example.tgs_dev.service.OperationOrchestratorService;
 import com.example.tgs_dev.service.RouteOperationService;
@@ -57,7 +57,7 @@ public class OperationController {
 
     @GetMapping("/{date}")
     @PreAuthorize("hasAuthority('" + Permissions.OPERATION_READ + "')")
-    public ResponseEntity<ApiResponse<List<RouteOperation>>> findAllByDate(@PathVariable LocalDate date){
+    public ResponseEntity<ApiResponse<List<RouteOperationDTO>>> findAllByDate(@PathVariable LocalDate date){
         return ResponseEntity.ok(ApiResponse.ok(routeOperationService.findAllByDate(date)));
     }
 

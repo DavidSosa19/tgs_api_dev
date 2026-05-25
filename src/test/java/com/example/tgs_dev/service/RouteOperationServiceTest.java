@@ -1,5 +1,6 @@
 package com.example.tgs_dev.service;
 
+import com.example.tgs_dev.controller.response.RouteOperationDTO;
 import com.example.tgs_dev.entity.Company;
 import com.example.tgs_dev.entity.Route;
 import com.example.tgs_dev.entity.RouteOperation;
@@ -55,6 +56,61 @@ class RouteOperationServiceTest {
         op    = operation(1, route, OP_DATE);
         lenient().when(tenantService.currentCompanyId()).thenReturn(COMPANY_ID);
         lenient().when(tenantService.currentCompany()).thenReturn(COMPANY);
+    }
+
+    // ── findAll ───────────────────────────────────────────────────────────────
+    @Nested @DisplayName("findAll")
+    class FindAll {
+
+        @Test @DisplayName("returns tenant-scoped list of all operations")
+        void returnsTenantScopedList() {
+            when(repo.findAll(any(Specification.class))).thenReturn(List.of(op));
+
+            List<RouteOperation> result = sut.findAll();
+
+            assertThat(result).containsExactly(op);
+        }
+    }
+
+    // ── findAllByDate ─────────────────────────────────────────────────────────
+    @Nested @DisplayName("findAllByDate")
+    class FindAllByDate {
+
+        @Test @DisplayName("returns DTOs for operations matching the date scoped to tenant")
+        void returnsForDate() {
+            // findAllByDate uses the JOIN FETCH named query (not a Specification)
+            when(repo.findAllByDateAndCompany(OP_DATE, COMPANY_ID)).thenReturn(List.of(op));
+
+            List<RouteOperationDTO> result = sut.findAllByDate(OP_DATE);
+
+            assertThat(result).hasSize(1);
+        }
+
+        @Test @DisplayName("returns empty list when no operations exist for that date")
+        void emptyForDate() {
+            when(repo.findAllByDateAndCompany(OP_DATE, COMPANY_ID)).thenReturn(List.of());
+
+            assertThat(sut.findAllByDate(OP_DATE)).isEmpty();
+        }
+    }
+
+    // ── findByRouteAndDate ────────────────────────────────────────────────────
+    @Nested @DisplayName("findByRouteAndDate")
+    class FindByRouteAndDate {
+
+        @Test @DisplayName("returns Optional with operation when found")
+        void found() {
+            when(repo.findOne(any(Specification.class))).thenReturn(Optional.of(op));
+
+            assertThat(sut.findByRouteAndDate(route, OP_DATE)).contains(op);
+        }
+
+        @Test @DisplayName("returns empty Optional when no operation matches")
+        void notFound() {
+            when(repo.findOne(any(Specification.class))).thenReturn(Optional.empty());
+
+            assertThat(sut.findByRouteAndDate(route, OP_DATE)).isEmpty();
+        }
     }
 
     // ── findById ──────────────────────────────────────────────────────────────

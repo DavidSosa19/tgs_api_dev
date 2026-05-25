@@ -2,6 +2,7 @@ package com.example.tgs_dev.service;
 
 import com.example.tgs_dev.entity.*;
 import com.example.tgs_dev.repository.VehicleAssignmentRepository;
+import com.example.tgs_dev.service.strategy.AssignmentSlot;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -53,6 +54,37 @@ class VehicleAssignmentServiceTest {
         template = template(100, route, LocalTime.of(6, 0));
         lenient().when(tenantService.currentCompanyId()).thenReturn(COMPANY_ID);
         lenient().when(tenantService.currentCompany()).thenReturn(COMPANY);
+    }
+
+    // ── save ─────────────────────────────────────────────────────────────────
+    @Nested @DisplayName("save")
+    class Save {
+
+        @Test @DisplayName("sets company from tenant when assignment has no company")
+        void setsCompanyWhenNull() {
+            VehicleAssignment va = assignment(1, op, vehicle, template, 1);
+            va.setCompany(null);  // simulate unset company
+            when(repo.save(va)).thenReturn(va);
+
+            VehicleAssignment result = sut.save(va);
+
+            assertThat(result.getCompany()).isEqualTo(COMPANY);
+            verify(tenantService).currentCompany();
+        }
+
+        @Test @DisplayName("does not override company when one is already set")
+        void doesNotOverrideExistingCompany() {
+            Company otherCompany = company(99, "Other");
+            VehicleAssignment va = assignment(1, op, vehicle, template, 1);
+            va.setCompany(otherCompany);
+            when(repo.save(va)).thenReturn(va);
+
+            sut.save(va);
+
+            // company should NOT be replaced — tenantService.currentCompany should not be called
+            verify(tenantService, never()).currentCompany();
+            assertThat(va.getCompany()).isEqualTo(otherCompany);
+        }
     }
 
     // ── findById ──────────────────────────────────────────────────────────────
@@ -156,13 +188,13 @@ class VehicleAssignmentServiceTest {
     @Nested @DisplayName("assignVehicles")
     class AssignVehicles {
 
-        @Test @DisplayName("row order is 1-based and matches the entry index")
+        @Test @DisplayName("row order is 1-based and matches the slot index")
         void rowOrderIsOneBased() {
             Vehicle v2 = vehicle(20, "V-002");
-            List<RotationEntry> entries = List.of(entry(vehicle, template), entry(v2, template));
+            List<AssignmentSlot> slots = List.<AssignmentSlot>of(entry(vehicle, template), entry(v2, template));
             when(repo.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
 
-            sut.assignVehicles(entries, op);
+            sut.assignVehicles(slots, op);
 
             ArgumentCaptor<List<VehicleAssignment>> captor = ArgumentCaptor.forClass(List.class);
             verify(repo).saveAll(captor.capture());
@@ -171,12 +203,12 @@ class VehicleAssignmentServiceTest {
             assertThat(created.get(1).getRowOrder()).isEqualTo(2);
         }
 
-        @Test @DisplayName("each assignment is linked to the correct vehicle from its entry")
+        @Test @DisplayName("each assignment is linked to the correct vehicle from its slot")
         void vehiclesArePreserved() {
             Vehicle v2 = vehicle(20, "V-002");
             when(repo.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
 
-            sut.assignVehicles(List.of(entry(vehicle, template), entry(v2, template)), op);
+            sut.assignVehicles(List.<AssignmentSlot>of(entry(vehicle, template), entry(v2, template)), op);
 
             ArgumentCaptor<List<VehicleAssignment>> captor = ArgumentCaptor.forClass(List.class);
             verify(repo).saveAll(captor.capture());
@@ -188,17 +220,57 @@ class VehicleAssignmentServiceTest {
         void companyIsStampedOnAssignments() {
             when(repo.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
 
-            sut.assignVehicles(List.of(entry(vehicle, template)), op);
+            sut.assignVehicles(List.<AssignmentSlot>of(entry(vehicle, template)), op);
 
             ArgumentCaptor<List<VehicleAssignment>> captor = ArgumentCaptor.forClass(List.class);
             verify(repo).saveAll(captor.capture());
             assertThat(captor.getValue().get(0).getCompany()).isEqualTo(COMPANY);
         }
 
-        @Test @DisplayName("empty entry list produces no assignments")
-        void emptyEntries_producesNoAssignments() {
+        @Test @DisplayName("accepts any AssignmentSlot implementation, not just RotationEntry")
+        void acceptsGenericAssignmentSlot() {
+            // Prove that the service is decoupled from RotationEntry
+            AssignmentSlot customSlot = slot(vehicle, template);
+            when(repo.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            sut.assignVehicles(List.of(customSlot), op);
+
+            ArgumentCaptor<List<VehicleAssignment>> captor = ArgumentCaptor.forClass(List.class);
+            verify(repo).saveAll(captor.capture());
+            VehicleAssignment created = captor.getValue().get(0);
+            assertThat(created.getVehicle()).isEqualTo(vehicle);
+            assertThat(created.getScheduleTemplate()).isEqualTo(template);
+        }
+
+        @Test @DisplayName("empty slot list produces no assignments")
+        void emptySlots_producesNoAssignments() {
             when(repo.saveAll(any())).thenReturn(List.of());
-            assertThat(sut.assignVehicles(List.of(), op)).isEmpty();
+            List<AssignmentSlot> empty = List.of();
+            assertThat(sut.assignVehicles(empty, op)).isEmpty();
+        }
+    }
+
+    // ── findByRouteOperationAndRowOrderGreaterThan ────────────────────────────
+    @Nested @DisplayName("findByRouteOperationAndRowOrderGreaterThan")
+    class FindByRowOrderGreaterThan {
+
+        @Test @DisplayName("returns assignments with rowOrder > threshold for the operation")
+        void returnsMatchingAssignments() {
+            VehicleAssignment va3 = assignment(3, op, vehicle, template, 3);
+            VehicleAssignment va5 = assignment(5, op, vehicle, template, 5);
+            when(repo.findAll(any(Specification.class))).thenReturn(List.of(va3, va5));
+
+            List<VehicleAssignment> result =
+                    sut.findByRouteOperationAndRowOrderGreaterThan(op, 2);
+
+            assertThat(result).containsExactlyInAnyOrder(va3, va5);
+        }
+
+        @Test @DisplayName("returns empty list when no assignments exceed the threshold")
+        void returnsEmptyWhenNone() {
+            when(repo.findAll(any(Specification.class))).thenReturn(List.of());
+
+            assertThat(sut.findByRouteOperationAndRowOrderGreaterThan(op, 10)).isEmpty();
         }
     }
 

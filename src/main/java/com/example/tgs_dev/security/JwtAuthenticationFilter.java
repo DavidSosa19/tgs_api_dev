@@ -25,6 +25,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -70,8 +71,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 // Populate the tenant context so service-layer queries can scope
                 // results to this user's company without extra DB lookups.
-                if (userDetails instanceof User u && u.getCompany() != null) {
-                    TenantContext.set(u.getCompany().getId());
+                // SUPER_ADMIN users have no tenant company; guard before setting.
+                if (userDetails instanceof User u) {
+                    Optional.ofNullable(u.getCompany())
+                            .ifPresent(c -> TenantContext.set(c.getId()));
                 }
             }
 

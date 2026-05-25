@@ -72,4 +72,11 @@ public class AdminCompanyController {
         adminCompanyService.deactivate(id);
         return ResponseEntity.ok(ApiResponse.ok("company.deactivated.success", null));
     }
+
+    @PatchMapping("/{id}/reactivate")
+    @PreAuthorize("hasAuthority('" + Permissions.COMPANY_WRITE + "')")
+    public ResponseEntity<ApiResponse<Void>> reactivate(@PathVariable Integer id) {
+        adminCompanyService.reactivate(id);
+        return ResponseEntity.ok(ApiResponse.ok("admin.company.reactivated", null));
+    }
 }

@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -63,21 +64,24 @@ public class AdminUserService {
 
     // ── Read ──────────────────────────────────────────────────────────────────
 
+    /** Returns ALL users (active + inactive) for admin view. */
     public List<UserAdminDTO> findAll() {
         assertSuperAdmin();
-        return userRepository.findAll().stream()
+        return userRepository.findAllAdmin().stream()
                 .map(this::toDTO)
                 .toList();
     }
 
+    /** Returns ALL users (active + inactive) for a given company. */
     public List<UserAdminDTO> findByCompany(Integer companyId) {
         assertSuperAdmin();
-        return userRepository.findAllByCompany_Id(companyId).stream()
+        return userRepository.findAllByCompanyIdAdmin(companyId).stream()
                 .map(this::toDTO)
                 .toList();
     }
 
-    public UserAdminDTO findById(Integer id) {
+    /** Finds a user by ID regardless of active status. */
+    public UserAdminDTO findById(Long id) {
         assertSuperAdmin();
         return toDTO(loadUserOrThrow(id));
     }
@@ -93,10 +97,11 @@ public class AdminUserService {
         assertNotSuperAdminRole(role);
 
         Person person = resolvePerson(request, company);
+        String encodedPassword = Objects.requireNonNull(passwordEncoder.encode(request.password()));
 
         User user = new User(
                 request.userName(),
-                passwordEncoder.encode(request.password()),
+                encodedPassword,
                 Set.of(role),
                 person,
                 company
@@ -105,7 +110,7 @@ public class AdminUserService {
     }
 
     @Transactional
-    public UserAdminDTO update(Integer id, UpdateAdminUserRequest request) {
+    public UserAdminDTO update(Long id, UpdateAdminUserRequest request) {
         assertSuperAdmin();
 
         User user = loadUserOrThrow(id);
@@ -114,13 +119,25 @@ public class AdminUserService {
 
         user.setRoles(Set.of(role));
         user.setActive(request.active());
+        if (request.newPassword() != null && !request.newPassword().isBlank()) {
+            String newPassword = request.newPassword();
+            user.setPassword(Objects.requireNonNull(passwordEncoder.encode(newPassword)));
+        }
         return toDTO(userRepository.save(user));
     }
 
     @Transactional
-    public void deactivate(Integer id) {
+    public void deactivate(Long id) {
         assertSuperAdmin();
         userRepository.softDelete(loadUserOrThrow(id));
+    }
+
+    @Transactional
+    public void reactivate(Long id) {
+        assertSuperAdmin();
+        userRepository.findByIdAdmin(id)
+                .orElseThrow(() -> new ResourceNotFoundException("notFound.user|" + id));
+        userRepository.reactivateById(id);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
@@ -132,7 +149,8 @@ public class AdminUserService {
      */
     private Person resolvePerson(CreateAdminUserRequest request, Company company) {
         if (request.personId() != null) {
-            Person existing = personRepository.findById(request.personId())
+            Integer personId = Objects.requireNonNull(request.personId());
+            Person existing = personRepository.findById(personId)
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "notFound.person|" + request.personId()));
 
@@ -162,8 +180,8 @@ public class AdminUserService {
         return personRepository.save(newPerson);
     }
 
-    private User loadUserOrThrow(Integer id) {
-        return userRepository.findById(id)
+    private User loadUserOrThrow(Long id) {
+        return userRepository.findByIdAdmin(id)
                 .orElseThrow(() -> new ResourceNotFoundException("notFound.user|" + id));
     }
 

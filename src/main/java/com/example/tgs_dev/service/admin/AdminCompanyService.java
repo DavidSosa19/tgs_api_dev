@@ -40,13 +40,15 @@ public class AdminCompanyService {
 
     // ── Read ──────────────────────────────────────────────────────────────────
 
+    /** Returns ALL companies (active + inactive) for admin view. */
     public List<CompanyAdminDTO> findAll() {
         assertSuperAdmin();
-        return companyRepository.findAll().stream()
+        return companyRepository.findAllAdmin().stream()
                 .map(this::toDTO)
                 .toList();
     }
 
+    /** Finds a company by ID regardless of active status. */
     public CompanyAdminDTO findById(Integer id) {
         assertSuperAdmin();
         return toDTO(loadOrThrow(id));
@@ -77,10 +79,18 @@ public class AdminCompanyService {
         companyRepository.softDelete(company);
     }
 
+    @Transactional
+    public void reactivate(Integer id) {
+        assertSuperAdmin();
+        companyRepository.findByIdAdmin(id)
+                .orElseThrow(() -> new ResourceNotFoundException("notFound.company|" + id));
+        companyRepository.reactivateById(id);
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private Company loadOrThrow(Integer id) {
-        return companyRepository.findById(id)
+        return companyRepository.findByIdAdmin(id)
                 .orElseThrow(() -> new ResourceNotFoundException("notFound.company|" + id));
     }
 

@@ -77,6 +77,12 @@ class AdminCompanyServiceTest {
         return c;
     }
 
+    private Company inactiveCompany(int id) {
+        Company c = company(id);
+        c.setActive(false);
+        return c;
+    }
+
     // ── assertSuperAdmin ──────────────────────────────────────────────────────
 
     @Nested
@@ -103,7 +109,7 @@ class AdminCompanyServiceTest {
         @DisplayName("passes for SUPER_ADMIN user")
         void superAdmin() {
             authenticateAsSuperAdmin();
-            when(companyRepository.findAll()).thenReturn(List.of());
+            when(companyRepository.findAllAdmin()).thenReturn(List.of());
             assertThat(service.findAll()).isEmpty();
         }
     }
@@ -115,15 +121,17 @@ class AdminCompanyServiceTest {
     class FindAll {
 
         @Test
-        @DisplayName("returns all companies as DTOs")
-        void returnsList() {
+        @DisplayName("returns all companies including inactive via admin query")
+        void returnsAllIncludingInactive() {
             authenticateAsSuperAdmin();
-            when(companyRepository.findAll()).thenReturn(List.of(company(1), company(2)));
+            when(companyRepository.findAllAdmin()).thenReturn(
+                    List.of(company(1), inactiveCompany(2)));
 
             List<CompanyAdminDTO> result = service.findAll();
 
             assertThat(result).hasSize(2);
-            assertThat(result).extracting(CompanyAdminDTO::id).containsExactlyInAnyOrder(1, 2);
+            assertThat(result).extracting(CompanyAdminDTO::active)
+                    .containsExactlyInAnyOrder(true, false);
         }
     }
 
@@ -137,7 +145,7 @@ class AdminCompanyServiceTest {
         @DisplayName("returns DTO when company exists")
         void found() {
             authenticateAsSuperAdmin();
-            when(companyRepository.findById(1)).thenReturn(Optional.of(company(1)));
+            when(companyRepository.findByIdAdmin(1)).thenReturn(Optional.of(company(1)));
 
             CompanyAdminDTO dto = service.findById(1);
 
@@ -146,10 +154,21 @@ class AdminCompanyServiceTest {
         }
 
         @Test
+        @DisplayName("returns inactive company DTO")
+        void foundInactive() {
+            authenticateAsSuperAdmin();
+            when(companyRepository.findByIdAdmin(2)).thenReturn(Optional.of(inactiveCompany(2)));
+
+            CompanyAdminDTO dto = service.findById(2);
+
+            assertThat(dto.active()).isFalse();
+        }
+
+        @Test
         @DisplayName("throws ResourceNotFoundException when not found")
         void notFound() {
             authenticateAsSuperAdmin();
-            when(companyRepository.findById(99)).thenReturn(Optional.empty());
+            when(companyRepository.findByIdAdmin(99)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.findById(99))
                     .isInstanceOf(ResourceNotFoundException.class);
@@ -187,7 +206,7 @@ class AdminCompanyServiceTest {
         void updates() {
             authenticateAsSuperAdmin();
             Company existing = company(1);
-            when(companyRepository.findById(1)).thenReturn(Optional.of(existing));
+            when(companyRepository.findByIdAdmin(1)).thenReturn(Optional.of(existing));
             when(companyRepository.save(existing)).thenReturn(existing);
 
             CompanyAdminDTO dto = service.update(1, new UpdateCompanyRequest("New Name", "NIT-999"));
@@ -200,9 +219,10 @@ class AdminCompanyServiceTest {
         @DisplayName("throws ResourceNotFoundException when company not found")
         void notFound() {
             authenticateAsSuperAdmin();
-            when(companyRepository.findById(99)).thenReturn(Optional.empty());
+            when(companyRepository.findByIdAdmin(99)).thenReturn(Optional.empty());
+            UpdateCompanyRequest req = new UpdateCompanyRequest("X", "Y");
 
-            assertThatThrownBy(() -> service.update(99, new UpdateCompanyRequest("X", "Y")))
+            assertThatThrownBy(() -> service.update(99, req))
                     .isInstanceOf(ResourceNotFoundException.class);
         }
     }
@@ -218,7 +238,7 @@ class AdminCompanyServiceTest {
         void deactivates() {
             authenticateAsSuperAdmin();
             Company c = company(1);
-            when(companyRepository.findById(1)).thenReturn(Optional.of(c));
+            when(companyRepository.findByIdAdmin(1)).thenReturn(Optional.of(c));
 
             service.deactivate(1);
 
@@ -229,10 +249,46 @@ class AdminCompanyServiceTest {
         @DisplayName("throws ResourceNotFoundException when company not found")
         void notFound() {
             authenticateAsSuperAdmin();
-            when(companyRepository.findById(99)).thenReturn(Optional.empty());
+            when(companyRepository.findByIdAdmin(99)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.deactivate(99))
                     .isInstanceOf(ResourceNotFoundException.class);
+        }
+    }
+
+    // ── reactivate ────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("reactivate")
+    class Reactivate {
+
+        @Test
+        @DisplayName("calls reactivateById when company exists")
+        void reactivates() {
+            authenticateAsSuperAdmin();
+            when(companyRepository.findByIdAdmin(2)).thenReturn(Optional.of(inactiveCompany(2)));
+
+            service.reactivate(2);
+
+            verify(companyRepository).reactivateById(2);
+        }
+
+        @Test
+        @DisplayName("throws ResourceNotFoundException when company not found")
+        void notFound() {
+            authenticateAsSuperAdmin();
+            when(companyRepository.findByIdAdmin(99)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> service.reactivate(99))
+                    .isInstanceOf(ResourceNotFoundException.class);
+        }
+
+        @Test
+        @DisplayName("throws AccessDeniedException when not super admin")
+        void accessDenied() {
+            authenticateAsRegularUser();
+            assertThatThrownBy(() -> service.reactivate(1))
+                    .isInstanceOf(AccessDeniedException.class);
         }
     }
 }

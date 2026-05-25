@@ -23,7 +23,7 @@ class ScheduleTemplateMapperTest {
     @BeforeEach
     void setUp() {
         sut   = new ScheduleTemplateMapper(new RouteMapper());
-        route = new Route("R-1", 30, 3);
+        route = new Route("R-1");
         route.setId(1);
     }
 
@@ -57,7 +57,7 @@ class ScheduleTemplateMapperTest {
 
         @Test @DisplayName("maps secondaryRoute when present")
         void mapsSecondaryRoute() {
-            Route secondary = new Route("R-2", 20, 2);
+            Route secondary = new Route("R-2");
             secondary.setId(2);
             ScheduleTemplate t = new ScheduleTemplate(route, "T-02", "Evening", LocalTime.of(18, 0));
             t.setSecondaryRoute(secondary);
@@ -98,7 +98,7 @@ class ScheduleTemplateMapperTest {
         @Test @DisplayName("overwrites all mutable fields")
         void updatesFields() {
             ScheduleTemplate t = new ScheduleTemplate(route, "OLD", "Old Name", LocalTime.of(6, 0));
-            Route newRoute = new Route("R-NEW", 45, 4);
+            Route newRoute = new Route("");
             var req = new ScheduleTemplateRequest(1, null, "T-NEW", "New Name", LocalTime.of(8, 0), null);
 
             sut.updateEntity(t, req, newRoute, null);

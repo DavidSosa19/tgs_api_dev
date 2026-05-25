@@ -1,6 +1,7 @@
 package com.example.tgs_dev.service;
 
 import com.example.tgs_dev.entity.RotationEntry;
+import com.example.tgs_dev.entity.Vehicle;
 import com.example.tgs_dev.entity.VehicleRotation;
 import com.example.tgs_dev.entity.enums.ShiftDayType;
 import com.example.tgs_dev.repository.VehicleRotationRepository;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class VehicleRotationService {
@@ -69,9 +71,43 @@ public class VehicleRotationService {
                         "rotation.notFound|" + rotationType.name() + "|" + date));
 
         int offset = getBusinessDays(rotation.getStartDate(), date);
-        List<RotationEntry> rotationList = rotation.getEntries();
-        rotationList.sort(Comparator.comparing(re -> re.getScheduleTemplate().getStartTime()));
-        return rotatePositions(rotationList, offset);
+
+        // Sort entries by their template's start time to establish the stable
+        // slot ordering.  Slot 0 = earliest departure, slot N-1 = latest.
+        // We copy the list to avoid mutating the Hibernate collection.
+        List<RotationEntry> sortedSlots = new ArrayList<>(rotation.getEntries());
+        sortedSlots.sort(Comparator.comparing(e -> e.getScheduleTemplate().getStartTime()));
+
+        // Rotate only the vehicles, keeping each template pinned to its slot.
+        //
+        // Rotating the full RotationEntry objects (old approach) moved the
+        // template along with its vehicle, breaking departure-time ordering:
+        // the vehicle that reached position 0 still carried its own late-start
+        // template instead of the slot-0 (earliest) template.
+        //
+        // Correct model: templates are fixed by slot; vehicles cycle through
+        // slots each business day.
+        List<Vehicle> vehicles = sortedSlots.stream()
+                .map(RotationEntry::getVehicle)
+                .collect(Collectors.toCollection(ArrayList::new));
+        List<Vehicle> rotatedVehicles = rotatePositions(vehicles, offset);
+
+        // Build transient (non-persisted) RotationEntry views: each view
+        // carries the slot's fixed template but the day's rotated vehicle.
+        // Hibernate will not dirty-check or cascade-persist these because
+        // they have no @Id assigned.
+        List<RotationEntry> result = new ArrayList<>(sortedSlots.size());
+        for (int i = 0; i < sortedSlots.size(); i++) {
+            RotationEntry slot = sortedSlots.get(i);
+            RotationEntry view = new RotationEntry();
+            view.setScheduleTemplate(slot.getScheduleTemplate());
+            view.setVehicle(rotatedVehicles.get(i));
+            view.setCompany(slot.getCompany());
+            view.setVehicleRotation(slot.getVehicleRotation());
+            view.setListPosition(i);
+            result.add(view);
+        }
+        return result;
     }
 
     public int getBusinessDays(LocalDate startDate, LocalDate targetDate) {

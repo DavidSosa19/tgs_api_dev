@@ -49,7 +49,7 @@ public class AdminUserController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('" + Permissions.ADMIN_USER_READ + "')")
-    public ResponseEntity<ApiResponse<UserAdminDTO>> getById(@PathVariable Integer id) {
+    public ResponseEntity<ApiResponse<UserAdminDTO>> getById(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.ok(adminUserService.findById(id)));
     }
 
@@ -65,7 +65,7 @@ public class AdminUserController {
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('" + Permissions.ADMIN_USER_WRITE + "')")
     public ResponseEntity<ApiResponse<UserAdminDTO>> update(
-            @PathVariable Integer id,
+            @PathVariable Long id,
             @RequestBody @Valid UpdateAdminUserRequest request) {
         return ResponseEntity.ok(
                 ApiResponse.ok("adminUser.updated.success", adminUserService.update(id, request)));
@@ -73,8 +73,15 @@ public class AdminUserController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('" + Permissions.ADMIN_USER_WRITE + "')")
-    public ResponseEntity<ApiResponse<Void>> deactivate(@PathVariable Integer id) {
+    public ResponseEntity<ApiResponse<Void>> deactivate(@PathVariable Long id) {
         adminUserService.deactivate(id);
         return ResponseEntity.ok(ApiResponse.ok("adminUser.deactivated.success", null));
+    }
+
+    @PatchMapping("/{id}/reactivate")
+    @PreAuthorize("hasAuthority('" + Permissions.ADMIN_USER_WRITE + "')")
+    public ResponseEntity<ApiResponse<Void>> reactivate(@PathVariable Long id) {
+        adminUserService.reactivate(id);
+        return ResponseEntity.ok(ApiResponse.ok("admin.user.reactivated", null));
     }
 }

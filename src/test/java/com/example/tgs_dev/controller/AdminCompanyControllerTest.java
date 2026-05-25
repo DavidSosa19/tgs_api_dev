@@ -57,13 +57,17 @@ class AdminCompanyControllerTest {
         return new CompanyAdminDTO(id, "Company " + id, "NIT-" + id, true);
     }
 
+    private CompanyAdminDTO inactiveDto(int id) {
+        return new CompanyAdminDTO(id, "Company " + id, "NIT-" + id, false);
+    }
+
     @Nested
     @DisplayName("GET /")
     class GetAll {
         @Test
-        @DisplayName("200 with company list")
+        @DisplayName("200 with company list including inactive")
         void ok() throws Exception {
-            when(adminCompanyService.findAll()).thenReturn(List.of(dto(1), dto(2)));
+            when(adminCompanyService.findAll()).thenReturn(List.of(dto(1), inactiveDto(2)));
             mockMvc.perform(get(BASE))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data").isArray())
@@ -81,6 +85,15 @@ class AdminCompanyControllerTest {
             mockMvc.perform(get(BASE + "/1"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.id").value(1));
+        }
+
+        @Test
+        @DisplayName("200 when found and inactive")
+        void foundInactive() throws Exception {
+            when(adminCompanyService.findById(2)).thenReturn(inactiveDto(2));
+            mockMvc.perform(get(BASE + "/2"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.active").value(false));
         }
 
         @Test
@@ -169,6 +182,37 @@ class AdminCompanyControllerTest {
             doThrow(new AccessDeniedException("admin.access.denied"))
                     .when(adminCompanyService).deactivate(1);
             mockMvc.perform(delete(BASE + "/1"))
+                    .andExpect(status().isForbidden());
+        }
+    }
+
+    @Nested
+    @DisplayName("PATCH /{id}/reactivate")
+    class Reactivate {
+        @Test
+        @DisplayName("200 when reactivated")
+        void reactivated() throws Exception {
+            doNothing().when(adminCompanyService).reactivate(2);
+            mockMvc.perform(patch(BASE + "/2/reactivate"))
+                    .andExpect(status().isOk());
+            verify(adminCompanyService).reactivate(2);
+        }
+
+        @Test
+        @DisplayName("404 when company not found")
+        void notFound() throws Exception {
+            doThrow(new ResourceNotFoundException("notFound.company|99"))
+                    .when(adminCompanyService).reactivate(99);
+            mockMvc.perform(patch(BASE + "/99/reactivate"))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @DisplayName("403 when service throws AccessDeniedException")
+        void accessDenied() throws Exception {
+            doThrow(new AccessDeniedException("admin.access.denied"))
+                    .when(adminCompanyService).reactivate(1);
+            mockMvc.perform(patch(BASE + "/1/reactivate"))
                     .andExpect(status().isForbidden());
         }
     }

@@ -41,7 +41,7 @@ class RouteServiceTest {
     }
 
     private Route route() {
-        Route r = new Route("R-1", 30, 3);
+        Route r = new Route("R-1");
         r.setId(1);
         return r;
     }

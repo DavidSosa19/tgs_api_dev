@@ -198,10 +198,25 @@ class VehicleRotationServiceTest {
     @Nested @DisplayName("getRotationFromDate")
     class GetRotationFromDate {
 
-        private RotationEntry entryWithTime(LocalTime time) {
-            Route route = new Route("R-1", 30, 2);
-            ScheduleTemplate t = new ScheduleTemplate(route, "T", "T", time);
-            Vehicle v = new Vehicle("V-1", null);
+        // startDate=Mon Jan 15 → targetDate=Tue Jan 16 is 1 business day ahead
+        private static final LocalDate START   = LocalDate.of(2024, 1, 15); // Monday
+        private static final LocalDate DAY_0   = LocalDate.of(2024, 1, 15); // offset=0
+        private static final LocalDate DAY_1   = LocalDate.of(2024, 1, 16); // offset=1
+        private static final LocalDate DAY_2   = LocalDate.of(2024, 1, 17); // offset=2
+
+        /** Builds a VehicleRotation whose entries are in the given list. */
+        private VehicleRotation rotation(List<RotationEntry> entries) {
+            VehicleRotation r = new VehicleRotation(START, LocalDate.of(2024, 1, 31),
+                    true, ShiftDayType.BUSINESS_DAYS);
+            r.setEntries(new ArrayList<>(entries));
+            return r;
+        }
+
+        /** Creates a RotationEntry with a distinct vehicle and a template at {@code time}. */
+        private RotationEntry entry(String vehiclePlate, LocalTime time) {
+            Route route = new Route("");
+            ScheduleTemplate t = new ScheduleTemplate(route, "T-" + time, "T-" + time, time);
+            Vehicle v = new Vehicle(vehiclePlate, null);
             RotationEntry e = new RotationEntry();
             e.setScheduleTemplate(t);
             e.setVehicle(v);
@@ -210,35 +225,99 @@ class VehicleRotationServiceTest {
 
         @Test @DisplayName("lanza NoSuchElementException cuando no existe rotación")
         void noRotationFound_throws() {
-            LocalDate date = LocalDate.of(2024, 1, 15);
             when(repo.findOne(any(Specification.class))).thenReturn(Optional.empty());
-            assertThatThrownBy(() -> sut.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, date))
+            assertThatThrownBy(() -> sut.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, DAY_1))
                     .isInstanceOf(NoSuchElementException.class);
         }
 
-        @Test @DisplayName("retorna entradas rotadas por offset de días hábiles desde startDate")
-        void returnsRotatedEntries() {
-            // startDate=Mon Jan 15, targetDate=Tue Jan 16 → 1 business day offset
-            LocalDate startDate  = LocalDate.of(2024, 1, 15); // Monday
-            LocalDate targetDate = LocalDate.of(2024, 1, 16); // Tuesday
+        @Test @DisplayName("offset=0 (día de inicio): cada vehículo ocupa su slot original")
+        void offsetZero_vehiclesInOriginalSlots() {
+            // Entries deliberately added in reverse time order to prove the sort happens
+            RotationEntry eC = entry("V-C", LocalTime.of(10, 0)); // latest
+            RotationEntry eB = entry("V-B", LocalTime.of(8,  0));
+            RotationEntry eA = entry("V-A", LocalTime.of(6,  0)); // earliest
 
-            RotationEntry e1 = entryWithTime(LocalTime.of(6, 0));
-            RotationEntry e2 = entryWithTime(LocalTime.of(7, 0));
-            RotationEntry e3 = entryWithTime(LocalTime.of(8, 0));
+            when(repo.findOne(any(Specification.class))).thenReturn(Optional.of(rotation(List.of(eC, eB, eA))));
 
-            VehicleRotation r = new VehicleRotation(startDate, LocalDate.of(2024, 1, 31),
-                    true, ShiftDayType.BUSINESS_DAYS);
-            r.setEntries(new ArrayList<>(List.of(e1, e2, e3)));
+            List<RotationEntry> result = sut.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, DAY_0);
 
-            when(repo.findOne(any(Specification.class))).thenReturn(Optional.of(r));
-
-            List<RotationEntry> result = sut.getRotationFromDate(
-                    ShiftDayType.BUSINESS_DAYS, targetDate);
-
-            // offset=1, size=3 → last 1 moves to front: [e3, e1, e2]
+            // Templates are sorted ascending: 6:00, 8:00, 10:00
             assertThat(result).hasSize(3);
-            assertThat(result.getFirst().getScheduleTemplate().getStartTime())
-                    .isEqualTo(LocalTime.of(8, 0));
+            assertThat(result.get(0).getScheduleTemplate().getStartTime()).isEqualTo(LocalTime.of(6,  0));
+            assertThat(result.get(1).getScheduleTemplate().getStartTime()).isEqualTo(LocalTime.of(8,  0));
+            assertThat(result.get(2).getScheduleTemplate().getStartTime()).isEqualTo(LocalTime.of(10, 0));
+            // Vehicles match their original (offset=0) template slots
+            assertThat(result.get(0).getVehicle().getVehicleNumber()).isEqualTo("V-A");
+            assertThat(result.get(1).getVehicle().getVehicleNumber()).isEqualTo("V-B");
+            assertThat(result.get(2).getVehicle().getVehicleNumber()).isEqualTo("V-C");
+        }
+
+        @Test @DisplayName("offset=1: sólo los vehículos rotan, las cartulinas mantienen su hora")
+        void offsetOne_vehiclesRotate_templatesStayInPosition() {
+            RotationEntry eA = entry("V-A", LocalTime.of(6,  0));
+            RotationEntry eB = entry("V-B", LocalTime.of(8,  0));
+            RotationEntry eC = entry("V-C", LocalTime.of(10, 0));
+
+            when(repo.findOne(any(Specification.class))).thenReturn(Optional.of(rotation(List.of(eA, eB, eC))));
+
+            List<RotationEntry> result = sut.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, DAY_1);
+
+            // Templates are UNCHANGED: slot 0 = 6:00, slot 1 = 8:00, slot 2 = 10:00
+            assertThat(result.get(0).getScheduleTemplate().getStartTime()).isEqualTo(LocalTime.of(6,  0));
+            assertThat(result.get(1).getScheduleTemplate().getStartTime()).isEqualTo(LocalTime.of(8,  0));
+            assertThat(result.get(2).getScheduleTemplate().getStartTime()).isEqualTo(LocalTime.of(10, 0));
+            // Vehicles rotated by 1: V-C (was last) now fills the earliest slot
+            assertThat(result.get(0).getVehicle().getVehicleNumber()).isEqualTo("V-C");
+            assertThat(result.get(1).getVehicle().getVehicleNumber()).isEqualTo("V-A");
+            assertThat(result.get(2).getVehicle().getVehicleNumber()).isEqualTo("V-B");
+        }
+
+        @Test @DisplayName("offset=2: vehículos rotan dos posiciones, cartulinas siguen ordenadas")
+        void offsetTwo_vehiclesRotateTwoPositions() {
+            RotationEntry eA = entry("V-A", LocalTime.of(6,  0));
+            RotationEntry eB = entry("V-B", LocalTime.of(8,  0));
+            RotationEntry eC = entry("V-C", LocalTime.of(10, 0));
+
+            when(repo.findOne(any(Specification.class))).thenReturn(Optional.of(rotation(List.of(eA, eB, eC))));
+
+            List<RotationEntry> result = sut.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, DAY_2);
+
+            // Templates unchanged
+            assertThat(result.get(0).getScheduleTemplate().getStartTime()).isEqualTo(LocalTime.of(6,  0));
+            assertThat(result.get(1).getScheduleTemplate().getStartTime()).isEqualTo(LocalTime.of(8,  0));
+            assertThat(result.get(2).getScheduleTemplate().getStartTime()).isEqualTo(LocalTime.of(10, 0));
+            // Vehicles rotated by 2: V-B fills slot 0, V-C fills slot 1, V-A fills slot 2
+            assertThat(result.get(0).getVehicle().getVehicleNumber()).isEqualTo("V-B");
+            assertThat(result.get(1).getVehicle().getVehicleNumber()).isEqualTo("V-C");
+            assertThat(result.get(2).getVehicle().getVehicleNumber()).isEqualTo("V-A");
+        }
+
+        @Test @DisplayName("entradas desordenadas en BD son ordenadas por hora antes de rotar")
+        void entriesOutOfOrder_areSortedBeforeRotation() {
+            // The entries arrive from DB in arbitrary order (e.g. by PK or insertion)
+            RotationEntry eC = entry("V-C", LocalTime.of(10, 0)); // added first but latest
+            RotationEntry eA = entry("V-A", LocalTime.of(6,  0));
+            RotationEntry eB = entry("V-B", LocalTime.of(8,  0));
+
+            when(repo.findOne(any(Specification.class))).thenReturn(Optional.of(rotation(List.of(eC, eA, eB))));
+
+            List<RotationEntry> result = sut.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, DAY_1);
+
+            // Result is always time-sorted regardless of input order
+            assertThat(result)
+                    .extracting(e -> e.getScheduleTemplate().getStartTime())
+                    .containsExactly(LocalTime.of(6, 0), LocalTime.of(8, 0), LocalTime.of(10, 0));
+        }
+
+        @Test @DisplayName("resultado siempre contiene el mismo número de entradas que la rotación original")
+        void resultSizeMatchesInputSize() {
+            List<RotationEntry> entries = List.of(
+                    entry("V-A", LocalTime.of(6, 0)),
+                    entry("V-B", LocalTime.of(8, 0)));
+
+            when(repo.findOne(any(Specification.class))).thenReturn(Optional.of(rotation(entries)));
+
+            assertThat(sut.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, DAY_1)).hasSize(2);
         }
     }
 }

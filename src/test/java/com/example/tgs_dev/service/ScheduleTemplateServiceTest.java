@@ -45,7 +45,7 @@ class ScheduleTemplateServiceTest {
     }
 
     private ScheduleTemplate template() {
-        Route r = new Route("R-1", 30, 3);
+        Route r = new Route("");
         ScheduleTemplate t = new ScheduleTemplate(r, "T-01", "Morning", LocalTime.of(6, 0));
         t.setId(1);
         return t;
@@ -74,13 +74,15 @@ class ScheduleTemplateServiceTest {
         @Test @DisplayName("returns entity when found")
         void found() {
             ScheduleTemplate t = template();
-            when(repo.findOne(any(Specification.class))).thenReturn(Optional.of(t));
+            // findById now uses findByIdWithRoutes (JOIN FETCH) instead of Specification
+            when(repo.findByIdWithRoutes(1, COMPANY_ID)).thenReturn(Optional.of(t));
             assertThat(sut.findById(1)).isSameAs(t);
         }
 
         @Test @DisplayName("throws NoSuchElementException when not found")
         void notFound() {
-            when(repo.findOne(any(Specification.class))).thenReturn(Optional.empty());
+            // findByIdWithRoutes returns empty → service throws NoSuchElementException
+            when(repo.findByIdWithRoutes(99, COMPANY_ID)).thenReturn(Optional.empty());
             assertThatThrownBy(() -> sut.findById(99))
                     .isInstanceOf(NoSuchElementException.class)
                     .hasMessageContaining("99");
@@ -91,10 +93,11 @@ class ScheduleTemplateServiceTest {
 
     @Nested @DisplayName("findAll")
     class FindAll {
-        @Test @DisplayName("delegates to repo with tenant specification")
+        @Test @DisplayName("delegates to repo with company id (JOIN FETCH query)")
         void scopedToTenant() {
             List<ScheduleTemplate> list = List.of(template());
-            when(repo.findAll(any(Specification.class))).thenReturn(list);
+            // findAll now uses findAllByCompanyWithRoutes (JOIN FETCH) instead of Specification
+            when(repo.findAllByCompanyWithRoutes(COMPANY_ID)).thenReturn(list);
             assertThat(sut.findAll()).isSameAs(list);
             verify(tenantService).currentCompanyId();
         }

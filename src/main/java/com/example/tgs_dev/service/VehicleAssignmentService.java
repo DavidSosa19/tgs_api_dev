@@ -1,6 +1,7 @@
 package com.example.tgs_dev.service;
 
 import com.example.tgs_dev.entity.*;
+import com.example.tgs_dev.service.strategy.AssignmentSlot;
 import com.example.tgs_dev.repository.VehicleAssignmentRepository;
 import com.example.tgs_dev.repository.specification.CommonSpecifications;
 import com.example.tgs_dev.repository.specification.TenantSpecifications;
@@ -82,17 +83,30 @@ public class VehicleAssignmentService {
         vehicleAssignmentRepository.saveAll(assignments);
     }
 
+    /**
+     * Creates one {@link VehicleAssignment} per slot in {@code slots}, preserving
+     * order (index 0 → row-order 1).
+     *
+     * <p>Accepts {@code List<? extends AssignmentSlot>} so that any
+     * {@link com.example.tgs_dev.service.strategy.ScheduleInitStrategy}
+     * implementation can provide its own slot type without depending on
+     * {@link RotationEntry}.
+     *
+     * @param slots          ordered list of vehicle-to-template slots
+     * @param routeOperation the parent operation to link assignments to
+     * @return the persisted assignments in the same order as {@code slots}
+     */
     @Transactional
-    public List<VehicleAssignment> assignVehicles(List<RotationEntry> dayRotation,
+    public List<VehicleAssignment> assignVehicles(List<AssignmentSlot> slots,
                                                   RouteOperation routeOperation) {
         Company company = tenantService.currentCompany();
-        List<VehicleAssignment> assignments = IntStream.range(0, dayRotation.size())
+        List<VehicleAssignment> assignments = IntStream.range(0, slots.size())
                 .mapToObj(i -> {
-                    RotationEntry entry = dayRotation.get(i);
+                    AssignmentSlot slot = slots.get(i);
                     VehicleAssignment va = new VehicleAssignment(
                             routeOperation,
-                            entry.getVehicle(),
-                            entry.getScheduleTemplate(),
+                            slot.getVehicle(),
+                            slot.getScheduleTemplate(),
                             i + 1
                     );
                     va.setCompany(company);
@@ -116,5 +130,29 @@ public class VehicleAssignmentService {
                 .findAll(CommonSpecifications.fieldEquals(FIELD_ROUTE_OPERATION, routeOperation))
                 .stream()
                 .max(Comparator.comparing(VehicleAssignment::getRowOrder));
+    }
+
+    /**
+     * Returns all active assignments for the given operation with {@code vehicle}
+     * and {@code scheduleTemplate} already loaded via a single JOIN FETCH —
+     * eliminating N+1 lazy-load hits during serialisation.
+     *
+     * <p>The current tenant's {@code companyId} is passed as a second-level guard:
+     * even if the caller has already validated that the {@link RouteOperation}
+     * belongs to the current tenant, this clause guarantees no cross-tenant
+     * assignment can ever leak through.
+     *
+     * <p>Results are ordered by {@code rowOrder ASC} — the canonical position
+     * assigned during scheduling — so callers receive a deterministic sequence
+     * without additional sorting.
+     *
+     * @param operation the parent route operation (must belong to the current tenant)
+     * @return assignments ordered by row order, with vehicle and template pre-loaded
+     */
+    public List<VehicleAssignment> findByOperationWithDetails(RouteOperation operation) {
+        return vehicleAssignmentRepository.findByOperationWithDetails(
+                operation,
+                tenantService.currentCompanyId()
+        );
     }
 }

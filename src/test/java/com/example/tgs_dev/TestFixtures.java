@@ -1,9 +1,15 @@
 package com.example.tgs_dev;
 
 import com.example.tgs_dev.entity.*;
+import com.example.tgs_dev.entity.enums.SchedulingMode;
+import com.example.tgs_dev.repository.projection.ScheduleProjection;
+import com.example.tgs_dev.service.schedule.TimeRangeLookup;
+import com.example.tgs_dev.service.strategy.AssignmentSlot;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+
+// suppress "unused" — factories are consumed across many test classes
 
 /**
  * Shared factory for domain objects used across test classes.
@@ -17,19 +23,44 @@ public final class TestFixtures {
     public static Company company(int id, String name) {
         Company c = new Company(name, "900000001-" + id);
         c.setId(id);
+        // schedulingMode field-default is ROTATION_BASED — no setter needed
         return c;
     }
 
+    public static Company company(int id, String name, SchedulingMode mode) {
+        Company c = company(id, name);
+        c.setSchedulingMode(mode);
+        return c;
+    }
+
+    /**
+     * Creates a lightweight {@link AssignmentSlot} that is NOT a
+     * {@link RotationEntry} (useful for testing that the assignment pipeline
+     * is decoupled from the concrete slot type).
+     */
+    public static AssignmentSlot slot(Vehicle v, ScheduleTemplate t) {
+        return new AssignmentSlot() {
+            @Override public Vehicle          getVehicle()          { return v; }
+            @Override public ScheduleTemplate getScheduleTemplate() { return t; }
+        };
+    }
+
     public static Route route(int id, String number) {
-        Route r = new Route(number, 30, 3);
+        Route r = new Route(number);
         r.setId(id);
         return r;
     }
 
-    public static Route route(int id, String number, int baseDuration, int cycleCount) {
-        Route r = new Route(number, baseDuration, cycleCount);
-        r.setId(id);
-        return r;
+    /**
+     * Creates a {@link TimeRangeLookup} value object for use in pure resolver tests.
+     */
+    public static TimeRangeLookup lookup(LocalTime start, LocalTime end, int durationMinutes) {
+        return new TimeRangeLookup(start, end, durationMinutes, false);
+    }
+
+    /** Overnight lookup variant. */
+    public static TimeRangeLookup overnightLookup(LocalTime start, LocalTime end, int durationMinutes) {
+        return new TimeRangeLookup(start, end, durationMinutes, true);
     }
 
     public static Vehicle vehicle(int id, String number) {
@@ -69,6 +100,59 @@ public final class TestFixtures {
         e.setVehicle(v);
         e.setScheduleTemplate(t);
         return e;
+    }
+
+    /**
+     * Creates a {@link RouteOperationalPeriod} with the given parameters, linked
+     * to a stub company. {@code effectiveTo} may be {@code null} for open-ended periods.
+     */
+    public static RouteOperationalPeriod operationalPeriod(int id, Route route,
+                                                            int baseDuration, int cycleCount,
+                                                            LocalDate effectiveFrom,
+                                                            LocalDate effectiveTo) {
+        Company c = company(1, "Corp");
+        RouteOperationalPeriod p = new RouteOperationalPeriod(
+                route, c, "Period " + id, baseDuration, cycleCount, effectiveFrom, effectiveTo);
+        p.setId(id);
+        return p;
+    }
+
+    /**
+     * Creates a {@link ScheduleTemplateVersion} with the given parameters.
+     * {@code effectiveTo} may be {@code null} for open-ended versions.
+     */
+    public static ScheduleTemplateVersion templateVersion(int id, ScheduleTemplate template,
+                                                           LocalTime startTime,
+                                                           LocalDate effectiveFrom,
+                                                           LocalDate effectiveTo) {
+        Company c = company(1, "Corp");
+        ScheduleTemplateVersion v = new ScheduleTemplateVersion(
+                template, c, "Version " + id, startTime, effectiveFrom, effectiveTo);
+        v.setId(id);
+        return v;
+    }
+
+    /**
+     * Creates a {@link ScheduleProjection} test double backed by an anonymous
+     * class (Spring Data's proxy interface cannot be instantiated directly).
+     *
+     * <p>Alias names in {@code ScheduleRepository.findScheduleProjectionsByAssignmentIds}
+     * must match these getter names; use this factory to keep test data consistent
+     * with production query aliases.
+     *
+     * @param assignmentId   the owning assignment ID
+     * @param departureOrder 1-based departure sequence number
+     * @param time           the departure time
+     * @return a lightweight test double implementing {@link ScheduleProjection}
+     */
+    public static ScheduleProjection scheduleProjection(int assignmentId,
+                                                        int departureOrder,
+                                                        LocalTime time) {
+        return new ScheduleProjection() {
+            @Override public Integer   getAssignmentId()   { return assignmentId; }
+            @Override public Integer   getDepartureOrder() { return departureOrder; }
+            @Override public LocalTime getDepartureTime()  { return time; }
+        };
     }
 
     // ── Common dates ───────────────────────────────────────────────────────────

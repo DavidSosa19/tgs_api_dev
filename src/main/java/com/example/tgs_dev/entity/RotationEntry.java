@@ -1,5 +1,6 @@
 package com.example.tgs_dev.entity;
 
+import com.example.tgs_dev.service.strategy.AssignmentSlot;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -10,7 +11,13 @@ import lombok.Setter;
 @NoArgsConstructor
 @Entity
 @Table(name="rotation_entry", schema = "core")
-public class RotationEntry extends BaseAudit{
+/**
+ * Persistence entity that also acts as an {@link AssignmentSlot}: Lombok's
+ * {@code @Getter} already generates {@code getVehicle()} and
+ * {@code getScheduleTemplate()}, satisfying the interface contract with zero
+ * extra code.
+ */
+public class RotationEntry extends BaseAudit implements AssignmentSlot {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -3,6 +3,7 @@ package com.example.tgs_dev.controller;
 import com.example.tgs_dev.controller.exception.ConstraintMessageResolver;
 import com.example.tgs_dev.controller.exception.GlobalExceptionHandler;
 import com.example.tgs_dev.controller.exception.ResourceNotFoundException;
+import com.example.tgs_dev.controller.response.RouteOperationDTO;
 import com.example.tgs_dev.entity.Route;
 import com.example.tgs_dev.entity.RouteOperation;
 import com.example.tgs_dev.service.OperationOrchestratorService;
@@ -124,9 +125,10 @@ class OperationControllerTest {
 
         @Test @DisplayName("returns 200 with the operation list in data field")
         void returnsOperationList() throws Exception {
-            Route route = route(1, "1");
-            RouteOperation op = operation(1, route, LocalDate.of(2024, 1, 15));
-            when(routeOperationService.findAllByDate(LocalDate.of(2024, 1, 15))).thenReturn(List.of(op));
+            RouteOperationDTO dto = new RouteOperationDTO(
+                    1, LocalDate.of(2024, 1, 15),
+                    new RouteOperationDTO.RouteRef(1, "1", true));
+            when(routeOperationService.findAllByDate(LocalDate.of(2024, 1, 15))).thenReturn(List.of(dto));
 
             mockMvc.perform(get(BASE + "/2024-01-15"))
                     .andExpect(status().isOk())

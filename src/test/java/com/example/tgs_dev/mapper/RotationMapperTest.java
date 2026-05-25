@@ -38,7 +38,7 @@ class RotationMapperTest {
                 new ScheduleTemplateMapper(new RouteMapper())
         );
 
-        route    = new Route("R-1", 30, 3);
+        route    = new Route("");
         route.setId(1);
         template = new ScheduleTemplate(route, "T-1", "Morning", LocalTime.of(6, 0));
         template.setId(1);

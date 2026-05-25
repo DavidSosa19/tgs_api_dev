@@ -131,6 +131,31 @@ class VehicleControllerTest {
         }
     }
 
+    @Nested @DisplayName("PUT /{id}")
+    class Update {
+        @Test @DisplayName("200 with updated vehicle")
+        void updated() throws Exception {
+            Vehicle v = vehicle(1);
+            when(vehicleService.findById(1)).thenReturn(v);
+            when(vehicleService.save(any())).thenReturn(v);
+            when(vehicleMapper.toDTO(v)).thenReturn(dto(1));
+            mockMvc.perform(put(BASE + "/1").contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                {"vehicleNumber":"V-1","licensePlate":"UPD-1"}"""))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.id").value(1));
+        }
+
+        @Test @DisplayName("404 when vehicle not found")
+        void notFound() throws Exception {
+            when(vehicleService.findById(99)).thenThrow(new NoSuchElementException("notFound.vehicle|99"));
+            mockMvc.perform(put(BASE + "/99").contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                {"vehicleNumber":"V-1","licensePlate":"ABC-1"}"""))
+                    .andExpect(status().isNotFound());
+        }
+    }
+
     @Nested @DisplayName("DELETE /{id}")
     class Delete {
         @Test @DisplayName("200 when deleted")

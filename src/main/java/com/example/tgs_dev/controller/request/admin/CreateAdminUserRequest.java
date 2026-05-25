@@ -3,6 +3,7 @@ package com.example.tgs_dev.controller.request.admin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -18,6 +19,7 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>SUPER_ADMIN role cannot be assigned via this endpoint — use DB migrations instead.
  */
+@NullMarked
 public record CreateAdminUserRequest(
 
         @NotNull Integer companyId,

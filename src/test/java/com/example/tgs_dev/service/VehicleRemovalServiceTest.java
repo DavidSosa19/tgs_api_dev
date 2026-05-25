@@ -42,7 +42,7 @@ class VehicleRemovalServiceTest {
 
     @BeforeEach
     void setUp() {
-        route    = route(1, "1", 30, 3);
+        route    = route(1, "1");
         op       = operation(1, route, OP_DATE);
         vehicleA = vehicle(10, "V-001");
         template = template(100, route, LocalTime.of(6, 0));

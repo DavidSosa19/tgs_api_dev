@@ -64,7 +64,7 @@ public class User implements UserDetails, Activatable {
     private Boolean active = true;
 
     /** Constructor de uso en la capa de servicio al registrar un nuevo usuario. */
-    public User(String userName, String password, @Nullable Set<AppRoleEntity> roles, Person person, Company company) {
+    public User(String userName, String password, @Nullable Set<AppRoleEntity> roles, @Nullable Person person, Company company) {
         this.userName = userName;
         this.password = password;
         this.roles    = roles != null ? roles : new HashSet<>();

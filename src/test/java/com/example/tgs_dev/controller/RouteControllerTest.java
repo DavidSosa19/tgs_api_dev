@@ -53,13 +53,13 @@ class RouteControllerTest {
     }
 
     private Route route(int id) {
-        Route r = new Route("R-" + id, 30, 3);
+        Route r = new Route("R-" + id);
         r.setId(id);
         return r;
     }
 
     private RouteDTO dto(int id) {
-        return new RouteDTO(id, "R-" + id, 30, 3, true);
+        return new RouteDTO(id, "R-" + id, true);
     }
 
     @Nested @DisplayName("GET /")
@@ -103,7 +103,7 @@ class RouteControllerTest {
             when(routeMapper.toDTO(r)).thenReturn(dto(1));
             mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                {"routeNumber":"R-1","baseDuration":30,"cycleCount":3}"""))
+                                {"routeNumber":"R-1"}"""))
                     .andExpect(status().isCreated());
         }
 
@@ -125,7 +125,7 @@ class RouteControllerTest {
             when(routeMapper.toDTO(r)).thenReturn(dto(1));
             mockMvc.perform(put(BASE + "/1").contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                {"routeNumber":"R-1","baseDuration":30,"cycleCount":3}"""))
+                                {"routeNumber":"R-1"}"""))
                     .andExpect(status().isOk());
         }
     }

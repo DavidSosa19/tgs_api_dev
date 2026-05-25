@@ -24,6 +24,9 @@ public class RouteService {
         this.tenantService   = tenantService;
     }
 
+    /**
+     * Saves a route, stamping the current tenant's company.
+     */
     public Route save(Route route) {
         route.setCompany(tenantService.currentCompany());
         return routeRepository.save(route);

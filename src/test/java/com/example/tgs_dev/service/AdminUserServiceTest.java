@@ -98,6 +98,15 @@ class AdminUserServiceTest {
         Person p = person(id);
         User u = new User("user" + id, "hashed", Set.of(USER_ROLE), p, COMPANY);
         u.setId((long) id);
+        // @Builder.Default removes the field initializer (= true) from non-builder
+        // constructors, so active must be set explicitly here.
+        u.setActive(true);
+        return u;
+    }
+
+    private User inactiveUser(int id) {
+        User u = user(id);
+        u.setActive(false);
         return u;
     }
 
@@ -149,14 +158,15 @@ class AdminUserServiceTest {
     class FindAll {
 
         @Test
-        @DisplayName("returns all users as DTOs")
-        void returnsList() {
+        @DisplayName("returns all users including inactive via admin query")
+        void returnsAllIncludingInactive() {
             authenticateAsSuperAdmin();
-            when(userRepository.findAll()).thenReturn(List.of(user(1), user(2)));
+            when(userRepository.findAllAdmin()).thenReturn(List.of(user(1), inactiveUser(2)));
 
             List<UserAdminDTO> result = service.findAll();
 
             assertThat(result).hasSize(2);
+            assertThat(result).extracting(UserAdminDTO::active).containsExactlyInAnyOrder(true, false);
         }
     }
 
@@ -167,14 +177,14 @@ class AdminUserServiceTest {
     class FindByCompany {
 
         @Test
-        @DisplayName("returns users filtered by company")
+        @DisplayName("returns all users for a company including inactive")
         void filtered() {
             authenticateAsSuperAdmin();
-            when(userRepository.findAllByCompany_Id(1)).thenReturn(List.of(user(1)));
+            when(userRepository.findAllByCompanyIdAdmin(1)).thenReturn(List.of(user(1), inactiveUser(2)));
 
             List<UserAdminDTO> result = service.findByCompany(1);
 
-            assertThat(result).hasSize(1);
+            assertThat(result).hasSize(2);
             assertThat(result.getFirst().companyId()).isEqualTo(1);
         }
     }
@@ -189,21 +199,32 @@ class AdminUserServiceTest {
         @DisplayName("returns DTO when user exists")
         void found() {
             authenticateAsSuperAdmin();
-            when(userRepository.findById(1)).thenReturn(Optional.of(user(1)));
+            when(userRepository.findByIdAdmin(1L)).thenReturn(Optional.of(user(1)));
 
-            UserAdminDTO dto = service.findById(1);
+            UserAdminDTO dto = service.findById(1L);
 
             assertThat(dto.id()).isEqualTo(1L);
             assertThat(dto.companyName()).isEqualTo("Company 1");
         }
 
         @Test
+        @DisplayName("returns inactive user DTO")
+        void foundInactive() {
+            authenticateAsSuperAdmin();
+            when(userRepository.findByIdAdmin(2L)).thenReturn(Optional.of(inactiveUser(2)));
+
+            UserAdminDTO dto = service.findById(2L);
+
+            assertThat(dto.active()).isFalse();
+        }
+
+        @Test
         @DisplayName("throws ResourceNotFoundException when not found")
         void notFound() {
             authenticateAsSuperAdmin();
-            when(userRepository.findById(99)).thenReturn(Optional.empty());
+            when(userRepository.findByIdAdmin(99L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> service.findById(99))
+            assertThatThrownBy(() -> service.findById(99L))
                     .isInstanceOf(ResourceNotFoundException.class);
         }
     }
@@ -326,7 +347,7 @@ class AdminUserServiceTest {
 
             CreateAdminUserRequest request = new CreateAdminUserRequest(
                     1, "newuser", "pass12345", 1, null,
-                    null, null, null, null, null);  // no inline person data
+                    null, null, null, null, null);
 
             assertThatThrownBy(() -> service.create(request))
                     .isInstanceOf(BusinessException.class)
@@ -345,14 +366,45 @@ class AdminUserServiceTest {
         void updates() {
             authenticateAsSuperAdmin();
             User u = user(1);
-            when(userRepository.findById(1)).thenReturn(Optional.of(u));
+            when(userRepository.findByIdAdmin(1L)).thenReturn(Optional.of(u));
             when(appRoleRepository.findById(2)).thenReturn(Optional.of(ADMIN_ROLE));
             when(userRepository.save(u)).thenReturn(u);
 
-            UserAdminDTO dto = service.update(1, new UpdateAdminUserRequest(2, false));
+            UserAdminDTO dto = service.update(1L, new UpdateAdminUserRequest(2, false, null));
 
             assertThat(dto.active()).isFalse();
             assertThat(dto.roles()).contains(AppRole.ADMIN);
+        }
+
+        @Test
+        @DisplayName("updates password when newPassword is provided")
+        void updatesPassword() {
+            authenticateAsSuperAdmin();
+            User u = user(1);
+            when(userRepository.findByIdAdmin(1L)).thenReturn(Optional.of(u));
+            when(appRoleRepository.findById(1)).thenReturn(Optional.of(USER_ROLE));
+            when(passwordEncoder.encode("newpass123")).thenReturn("new_hashed");
+            when(userRepository.save(u)).thenReturn(u);
+
+            service.update(1L, new UpdateAdminUserRequest(1, true, "newpass123"));
+
+            verify(passwordEncoder).encode("newpass123");
+            assertThat(u.getPassword()).isEqualTo("new_hashed");
+        }
+
+        @Test
+        @DisplayName("does not change password when newPassword is null")
+        void doesNotChangePasswordWhenNull() {
+            authenticateAsSuperAdmin();
+            User u = user(1);
+            String originalPassword = u.getPassword();
+            when(userRepository.findByIdAdmin(1L)).thenReturn(Optional.of(u));
+            when(appRoleRepository.findById(1)).thenReturn(Optional.of(USER_ROLE));
+            when(userRepository.save(u)).thenReturn(u);
+
+            service.update(1L, new UpdateAdminUserRequest(1, true, null));
+
+            assertThat(u.getPassword()).isEqualTo(originalPassword);
         }
 
         @Test
@@ -361,10 +413,11 @@ class AdminUserServiceTest {
             authenticateAsSuperAdmin();
             User u = user(1);
             AppRoleEntity superAdminRole = role(99, AppRole.SUPER_ADMIN);
-            when(userRepository.findById(1)).thenReturn(Optional.of(u));
+            when(userRepository.findByIdAdmin(1L)).thenReturn(Optional.of(u));
             when(appRoleRepository.findById(99)).thenReturn(Optional.of(superAdminRole));
+            UpdateAdminUserRequest req = new UpdateAdminUserRequest(99, true, null);
 
-            assertThatThrownBy(() -> service.update(1, new UpdateAdminUserRequest(99, true)))
+            assertThatThrownBy(() -> service.update(1L, req))
                     .isInstanceOf(BusinessException.class);
         }
     }
@@ -380,9 +433,9 @@ class AdminUserServiceTest {
         void deactivates() {
             authenticateAsSuperAdmin();
             User u = user(1);
-            when(userRepository.findById(1)).thenReturn(Optional.of(u));
+            when(userRepository.findByIdAdmin(1L)).thenReturn(Optional.of(u));
 
-            service.deactivate(1);
+            service.deactivate(1L);
 
             verify(userRepository).softDelete(u);
         }
@@ -391,10 +444,46 @@ class AdminUserServiceTest {
         @DisplayName("throws ResourceNotFoundException when user not found")
         void notFound() {
             authenticateAsSuperAdmin();
-            when(userRepository.findById(99)).thenReturn(Optional.empty());
+            when(userRepository.findByIdAdmin(99L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> service.deactivate(99))
+            assertThatThrownBy(() -> service.deactivate(99L))
                     .isInstanceOf(ResourceNotFoundException.class);
+        }
+    }
+
+    // ── reactivate ────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("reactivate")
+    class Reactivate {
+
+        @Test
+        @DisplayName("calls reactivateById when user exists")
+        void reactivates() {
+            authenticateAsSuperAdmin();
+            when(userRepository.findByIdAdmin(2L)).thenReturn(Optional.of(inactiveUser(2)));
+
+            service.reactivate(2L);
+
+            verify(userRepository).reactivateById(2L);
+        }
+
+        @Test
+        @DisplayName("throws ResourceNotFoundException when user not found")
+        void notFound() {
+            authenticateAsSuperAdmin();
+            when(userRepository.findByIdAdmin(99L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> service.reactivate(99L))
+                    .isInstanceOf(ResourceNotFoundException.class);
+        }
+
+        @Test
+        @DisplayName("throws AccessDeniedException when not super admin")
+        void accessDenied() {
+            authenticateAsRegularUser();
+            assertThatThrownBy(() -> service.reactivate(1L))
+                    .isInstanceOf(AccessDeniedException.class);
         }
     }
 }

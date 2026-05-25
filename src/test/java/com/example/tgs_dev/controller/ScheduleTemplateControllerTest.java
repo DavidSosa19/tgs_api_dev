@@ -58,7 +58,7 @@ class ScheduleTemplateControllerTest {
     }
 
     private ScheduleTemplate template(int id) {
-        Route r = new Route("R-" + id, 30, 3);
+        Route r = new Route("R-" + id);
         r.setId(id);
         ScheduleTemplate t = new ScheduleTemplate(r, "T-" + id, "Template " + id, LocalTime.of(6, 0));
         t.setId(id);
@@ -66,7 +66,7 @@ class ScheduleTemplateControllerTest {
     }
 
     private ScheduleTemplateDTO dto(int id) {
-        RouteDTO routeDTO = new RouteDTO(id, "R-" + id, 30, 3, true);
+        RouteDTO routeDTO = new RouteDTO(id, "R-" + id, true);
         return new ScheduleTemplateDTO(id, "T-" + id, "Template " + id, true, LocalTime.of(6, 0), routeDTO, null);
     }
 
@@ -104,7 +104,7 @@ class ScheduleTemplateControllerTest {
     class Create {
         @Test @DisplayName("201 without secondary route")
         void createdNoSecondary() throws Exception {
-            Route r = new Route("R-1", 30, 3);
+            Route r = new Route("");
             r.setId(1);
             ScheduleTemplate t = template(1);
             when(routeService.findById(1)).thenReturn(r);
@@ -118,8 +118,8 @@ class ScheduleTemplateControllerTest {
 
         @Test @DisplayName("201 with secondaryRouteId resolves secondary route")
         void createdWithSecondary() throws Exception {
-            Route r1 = new Route("R-1", 30, 3); r1.setId(1);
-            Route r2 = new Route("R-2", 45, 2); r2.setId(2);
+            Route r1 = new Route(""); r1.setId(1);
+            Route r2 = new Route(""); r2.setId(2);
             ScheduleTemplate t = template(1);
             when(routeService.findById(1)).thenReturn(r1);
             when(routeService.findById(2)).thenReturn(r2);
@@ -141,9 +141,9 @@ class ScheduleTemplateControllerTest {
 
     @Nested @DisplayName("PUT /{id}")
     class Update {
-        @Test @DisplayName("200 with updated template")
+        @Test @DisplayName("200 with updated template (no secondary route)")
         void updated() throws Exception {
-            Route r = new Route("R-1", 30, 3); r.setId(1);
+            Route r = new Route(""); r.setId(1);
             ScheduleTemplate t = template(1);
             when(scheduleTemplateService.findById(1)).thenReturn(t);
             when(routeService.findById(1)).thenReturn(r);
@@ -153,6 +153,24 @@ class ScheduleTemplateControllerTest {
                             .content("""
                                 {"routeId":1,"templateNumber":"T-1","name":"Template 1","startTime":"06:00:00"}"""))
                     .andExpect(status().isOk());
+            verify(routeService, times(1)).findById(1);
+        }
+
+        @Test @DisplayName("200 with secondaryRouteId resolves secondary route on update")
+        void updatedWithSecondaryRoute() throws Exception {
+            Route r1 = new Route(""); r1.setId(1);
+            Route r2 = new Route(""); r2.setId(2);
+            ScheduleTemplate t = template(1);
+            when(scheduleTemplateService.findById(1)).thenReturn(t);
+            when(routeService.findById(1)).thenReturn(r1);
+            when(routeService.findById(2)).thenReturn(r2);
+            when(scheduleTemplateService.save(t)).thenReturn(t);
+            when(scheduleTemplateMapper.toDTO(t)).thenReturn(dto(1));
+            mockMvc.perform(put(BASE + "/1").contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                {"routeId":1,"secondaryRouteId":2,"templateNumber":"T-1","name":"Template 1","startTime":"06:00:00"}"""))
+                    .andExpect(status().isOk());
+            verify(routeService).findById(2);
         }
     }
 

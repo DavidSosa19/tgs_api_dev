@@ -43,7 +43,8 @@ public class RouteController {
     @PostMapping
     @PreAuthorize("hasAuthority('" + Permissions.ROUTE_WRITE + "')")
     public ResponseEntity<ApiResponse<RouteDTO>> create(@RequestBody @Valid RouteRequest request) {
-        Route saved = routeService.save(routeMapper.toEntity(request));
+        Route route = routeMapper.toEntity(request);
+        Route saved = routeService.save(route);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Route created successfully", routeMapper.toDTO(saved)));
     }

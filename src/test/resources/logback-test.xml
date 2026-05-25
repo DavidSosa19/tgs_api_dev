@@ -1,0 +1,24 @@
+<configuration>
+
+    <!-- Console appender — plain text, no colour needed in test output -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} -- %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!--
+        GlobalExceptionHandler logs every handled 4xx/5xx at WARN.
+        During tests the "404 when not found" / "403 access denied" scenarios
+        fire those log lines intentionally — raising them to ERROR keeps the
+        test output clean without hiding real problems.
+    -->
+    <logger name="com.example.tgs_dev.controller.exception.GlobalExceptionHandler"
+            level="ERROR"/>
+
+    <!-- Root: INFO is enough for test runs -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+</configuration>

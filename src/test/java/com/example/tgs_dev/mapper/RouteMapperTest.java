@@ -32,7 +32,7 @@ class RouteMapperTest {
 
         @Test @DisplayName("maps all fields")
         void mapsAllFields() {
-            Route r = new Route("R-01", 45, 4);
+            Route r = new Route("R-01");
             r.setId(3);
             r.setActive(true);
 
@@ -40,8 +40,6 @@ class RouteMapperTest {
 
             assertThat(dto.id()).isEqualTo(3);
             assertThat(dto.routeNumber()).isEqualTo("R-01");
-            assertThat(dto.baseDuration()).isEqualTo(45);
-            assertThat(dto.cycleCount()).isEqualTo(4);
             assertThat(dto.active()).isTrue();
         }
     }
@@ -59,7 +57,7 @@ class RouteMapperTest {
         @Test @DisplayName("maps every element preserving order")
         void mapsAll() {
             List<RouteDTO> dtos = sut.toDTOList(
-                    List.of(new Route("1", 30, 2), new Route("2", 60, 3)));
+                    List.of(new Route("1"), new Route("2")));
             assertThat(dtos).hasSize(2);
             assertThat(dtos.get(0).routeNumber()).isEqualTo("1");
             assertThat(dtos.get(1).routeNumber()).isEqualTo("2");
@@ -71,13 +69,11 @@ class RouteMapperTest {
     @Nested @DisplayName("toEntity")
     class ToEntity {
 
-        @Test @DisplayName("maps all request fields")
+        @Test @DisplayName("maps routeNumber from request")
         void mapsFields() {
-            var req = new RouteRequest("R-99", 40, 5);
+            var req = new RouteRequest("R-99");
             Route r = sut.toEntity(req);
             assertThat(r.getRouteNumber()).isEqualTo("R-99");
-            assertThat(r.getBaseDuration()).isEqualTo(40);
-            assertThat(r.getCycleCount()).isEqualTo(5);
         }
     }
 
@@ -86,13 +82,11 @@ class RouteMapperTest {
     @Nested @DisplayName("updateEntity")
     class UpdateEntity {
 
-        @Test @DisplayName("overwrites all mutable route fields")
+        @Test @DisplayName("overwrites routeNumber")
         void updatesFields() {
-            Route r = new Route("OLD", 10, 1);
-            sut.updateEntity(r, new RouteRequest("NEW", 50, 6));
+            Route r = new Route("OLD");
+            sut.updateEntity(r, new RouteRequest("NEW"));
             assertThat(r.getRouteNumber()).isEqualTo("NEW");
-            assertThat(r.getBaseDuration()).isEqualTo(50);
-            assertThat(r.getCycleCount()).isEqualTo(6);
         }
     }
 }
