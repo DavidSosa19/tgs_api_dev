@@ -6,7 +6,6 @@ import com.example.tgs_dev.entity.VehicleRotation;
 import com.example.tgs_dev.repository.RotationEntryRepository;
 import com.example.tgs_dev.repository.specification.CommonSpecifications;
 import com.example.tgs_dev.repository.specification.TenantSpecifications;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
@@ -64,9 +63,6 @@ public class RotationEntryService {
     }
 
     public List<RotationEntry> findByRotation(VehicleRotation vehicleRotation){
-        return rotationEntryRepository.findAll(
-                CommonSpecifications.fieldEquals("vehicleRotation", vehicleRotation),
-                Sort.by(Sort.Direction.ASC, "listPosition")
-        );
+        return rotationEntryRepository.findByRotationEager(vehicleRotation);
     }
 }

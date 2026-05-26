@@ -60,13 +60,9 @@ public class VehicleRotationService {
 
     public List<RotationEntry> getRotationFromDate(ShiftDayType rotationType, LocalDate date) {
         Integer companyId = tenantService.currentCompanyId();
-        Specification<VehicleRotation> specification = Specification
-                .<VehicleRotation>where(CommonSpecifications.fieldGreaterThanOrEqualTo("endDate", date))
-                .and(CommonSpecifications.fieldLessThanOrEqualTo("startDate", date))
-                .and(CommonSpecifications.fieldEquals("rotationType", rotationType))
-                .and(TenantSpecifications.belongsToCompany(companyId));
 
-        VehicleRotation rotation = vehicleRotationRepository.findOne(specification)
+        VehicleRotation rotation = vehicleRotationRepository
+                .findByDateAndTypeEager(date, rotationType, companyId)
                 .orElseThrow(() -> new NoSuchElementException(
                         "rotation.notFound|" + rotationType.name() + "|" + date));
 
