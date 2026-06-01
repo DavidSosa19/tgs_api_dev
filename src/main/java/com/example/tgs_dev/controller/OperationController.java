@@ -49,10 +49,14 @@ public class OperationController {
 
     @PostMapping("/all")
     @PreAuthorize("hasAuthority('" + Permissions.OPERATION_MANAGE + "')")
-    public ResponseEntity<ApiResponse<Void>> createAll(@RequestBody @Valid InitOperationRequest operationRequest){
-        orchestratorService.initAllOperations(operationRequest.date());
+    public ResponseEntity<ApiResponse<Integer>> createAll(@RequestBody @Valid InitOperationRequest operationRequest){
+        int count = orchestratorService.initAllOperations(operationRequest.date());
+        if (count == 0) {
+            return ResponseEntity.ok(
+                    ApiResponse.ok("routes.initialized.none", 0));
+        }
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.ok("routes.initialized.success", null));
+                .body(ApiResponse.ok("routes.initialized.success", count));
     }
 
     @GetMapping("/{date}")

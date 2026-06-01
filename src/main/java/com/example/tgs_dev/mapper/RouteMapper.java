@@ -12,7 +12,11 @@ public class RouteMapper {
 
     public RouteDTO toDTO(Route route) {
         if (route == null) return null;
-        return new RouteDTO(route.getId(), route.getRouteNumber(), route.getActive());
+        return new RouteDTO(
+                route.getId(),
+                route.getGroup() != null ? route.getGroup().getId() : null,
+                route.getRouteNumber(),
+                route.getActive());
     }
 
     public List<RouteDTO> toDTOList(List<Route> routes) {

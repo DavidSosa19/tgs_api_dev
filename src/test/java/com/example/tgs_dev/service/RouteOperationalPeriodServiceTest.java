@@ -48,7 +48,7 @@ class RouteOperationalPeriodServiceTest {
         sut = new RouteOperationalPeriodService(repository, routeService, tenantService);
         lenient().when(tenantService.currentCompany()).thenReturn(COMPANY);
         lenient().when(tenantService.currentCompanyId()).thenReturn(1);
-        lenient().when(routeService.findById(10)).thenReturn(ROUTE);
+        lenient().when(routeService.findByGroupId(10L)).thenReturn(ROUTE);
     }
 
     // ── findAllByRoute ────────────────────────────────────────────────────────
@@ -61,13 +61,13 @@ class RouteOperationalPeriodServiceTest {
             RouteOperationalPeriod p = operationalPeriod(1, ROUTE, 30, 3, FROM, TO);
             when(repository.findAllByRouteAndCompany(ROUTE, 1)).thenReturn(List.of(p));
 
-            assertThat(sut.findAllByRoute(10)).containsExactly(p);
+            assertThat(sut.findAllByRoute(10L)).containsExactly(p);
         }
 
         @Test @DisplayName("returns empty list when route has no periods")
         void empty() {
             when(repository.findAllByRouteAndCompany(ROUTE, 1)).thenReturn(List.of());
-            assertThat(sut.findAllByRoute(10)).isEmpty();
+            assertThat(sut.findAllByRoute(10L)).isEmpty();
         }
     }
 
@@ -131,7 +131,7 @@ class RouteOperationalPeriodServiceTest {
             RouteOperationalPeriod saved = operationalPeriod(1, ROUTE, 30, 12, FROM, TO);
             when(repository.save(any())).thenReturn(saved);
 
-            RouteOperationalPeriod result = sut.create(10, req(FROM, TO));
+            RouteOperationalPeriod result = sut.create(10L, req(FROM, TO));
 
             assertThat(result).isEqualTo(saved);
             verify(repository).save(any(RouteOperationalPeriod.class));
@@ -144,7 +144,7 @@ class RouteOperationalPeriodServiceTest {
                     .thenReturn(List.of(existing));
 
             RouteOperationalPeriodRequest request = req(FROM, TO);
-            assertThatThrownBy(() -> sut.create(10, request))
+            assertThatThrownBy(() -> sut.create(10L, request))
                     .isInstanceOf(ConflictException.class);
             verify(repository, never()).save(any());
         }
@@ -152,7 +152,7 @@ class RouteOperationalPeriodServiceTest {
         @Test @DisplayName("throws BusinessException when effectiveTo is before effectiveFrom")
         void invalidDateRange_throws() {
             RouteOperationalPeriodRequest request = req(TO, FROM);   // TO < FROM
-            assertThatThrownBy(() -> sut.create(10, request))
+            assertThatThrownBy(() -> sut.create(10L, request))
                     .isInstanceOf(BusinessException.class);
             verify(repository, never()).save(any());
         }
@@ -163,7 +163,7 @@ class RouteOperationalPeriodServiceTest {
                     .thenReturn(List.of());
             when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-            assertThatCode(() -> sut.create(10, req(FROM, null))).doesNotThrowAnyException();
+            assertThatCode(() -> sut.create(10L, req(FROM, null))).doesNotThrowAnyException();
         }
 
         @Test @DisplayName("persists time ranges when useTimeRanges is true")
@@ -183,7 +183,7 @@ class RouteOperationalPeriodServiceTest {
                     .thenReturn(List.of());
             when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-            RouteOperationalPeriod result = sut.create(10, request);
+            RouteOperationalPeriod result = sut.create(10L, request);
 
             assertThat(result.isUseTimeRanges()).isTrue();
             assertThat(result.getTimeRanges()).hasSize(2);
@@ -204,7 +204,7 @@ class RouteOperationalPeriodServiceTest {
             when(repository.findOverlapping(eq(ROUTE), eq(1), any(), any(), eq(-1)))
                     .thenReturn(List.of());
 
-            assertThatThrownBy(() -> sut.create(10, request))
+            assertThatThrownBy(() -> sut.create(10L, request))
                     .isInstanceOf(BusinessException.class);
             verify(repository, never()).save(any());
         }
@@ -228,7 +228,7 @@ class RouteOperationalPeriodServiceTest {
                     .thenReturn(List.of());
             when(repository.save(existing)).thenReturn(existing);
 
-            RouteOperationalPeriod result = sut.update(10, 1, req());
+            RouteOperationalPeriod result = sut.update(10L, 1, req());
 
             assertThat(result.getLabel()).isEqualTo("Vacaciones");
             assertThat(result.getBaseDuration()).isEqualTo(40);
@@ -240,7 +240,7 @@ class RouteOperationalPeriodServiceTest {
             when(repository.findOne(any(Specification.class))).thenReturn(Optional.empty());
 
             RouteOperationalPeriodRequest request = req();
-            assertThatThrownBy(() -> sut.update(10, 99, request))
+            assertThatThrownBy(() -> sut.update(10L, 99, request))
                     .isInstanceOf(ResourceNotFoundException.class);
         }
 
@@ -253,7 +253,7 @@ class RouteOperationalPeriodServiceTest {
                     .thenReturn(List.of(other));
 
             RouteOperationalPeriodRequest request = req();
-            assertThatThrownBy(() -> sut.update(10, 1, request))
+            assertThatThrownBy(() -> sut.update(10L, 1, request))
                     .isInstanceOf(ConflictException.class);
         }
 
@@ -276,7 +276,7 @@ class RouteOperationalPeriodServiceTest {
             RouteOperationalPeriodRequest request =
                     new RouteOperationalPeriodRequest("Vacaciones", 40, 9, FROM, TO, true, ranges);
 
-            RouteOperationalPeriod result = sut.update(10, 1, request);
+            RouteOperationalPeriod result = sut.update(10L, 1, request);
 
             assertThat(result.isUseTimeRanges()).isTrue();
             assertThat(result.getTimeRanges()).hasSize(2);
@@ -293,7 +293,7 @@ class RouteOperationalPeriodServiceTest {
             RouteOperationalPeriod p = operationalPeriod(1, ROUTE, 30, 3, FROM, TO);
             when(repository.findOne(any(Specification.class))).thenReturn(Optional.of(p));
 
-            sut.delete(10, 1);
+            sut.delete(10L, 1);
 
             verify(repository).softDelete(p);
         }
@@ -302,7 +302,7 @@ class RouteOperationalPeriodServiceTest {
         void notFound_throws() {
             when(repository.findOne(any(Specification.class))).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> sut.delete(10, 99))
+            assertThatThrownBy(() -> sut.delete(10L, 99))
                     .isInstanceOf(ResourceNotFoundException.class);
         }
     }

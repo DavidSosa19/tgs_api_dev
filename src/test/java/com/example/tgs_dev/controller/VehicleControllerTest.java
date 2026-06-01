@@ -2,11 +2,10 @@ package com.example.tgs_dev.controller;
 
 import com.example.tgs_dev.controller.exception.ConstraintMessageResolver;
 import com.example.tgs_dev.controller.exception.GlobalExceptionHandler;
+import com.example.tgs_dev.controller.request.VehicleRequest;
 import com.example.tgs_dev.controller.response.VehicleDTO;
-import com.example.tgs_dev.entity.Person;
 import com.example.tgs_dev.entity.Vehicle;
 import com.example.tgs_dev.mapper.VehicleMapper;
-import com.example.tgs_dev.service.PersonService;
 import com.example.tgs_dev.service.VehicleService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -24,9 +23,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -36,7 +34,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class VehicleControllerTest {
 
     @Mock VehicleService vehicleService;
-    @Mock PersonService  personService;
     @Mock VehicleMapper  vehicleMapper;
     @Mock ConstraintMessageResolver constraintResolver;
 
@@ -48,7 +45,7 @@ class VehicleControllerTest {
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new VehicleController(vehicleService, personService, vehicleMapper))
+                .standaloneSetup(new VehicleController(vehicleService, vehicleMapper))
                 .setControllerAdvice(new GlobalExceptionHandler(constraintResolver))
                 .setValidator(validator)
                 .setMessageConverters(new JacksonJsonHttpMessageConverter())
@@ -61,8 +58,8 @@ class VehicleControllerTest {
         return v;
     }
 
-    private VehicleDTO dto(int id) {
-        return new VehicleDTO(id, "V-" + id, "ABC-" + id, true, null);
+    private VehicleDTO dto(int id, long groupId) {
+        return new VehicleDTO(id, groupId, "V-" + id, "ABC-" + id, true, null);
     }
 
     @Nested @DisplayName("GET /")
@@ -70,57 +67,35 @@ class VehicleControllerTest {
         @Test @DisplayName("200 with vehicle list")
         void ok() throws Exception {
             when(vehicleService.findAll()).thenReturn(List.of(vehicle(1)));
-            when(vehicleMapper.toDTOList(any())).thenReturn(List.of(dto(1)));
+            when(vehicleMapper.toDTOList(any())).thenReturn(List.of(dto(1, 50L)));
             mockMvc.perform(get(BASE))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data").isArray());
         }
     }
 
-    @Nested @DisplayName("GET /{id}")
+    @Nested @DisplayName("GET /{groupId}")
     class GetById {
         @Test @DisplayName("200 when found")
         void found() throws Exception {
-            when(vehicleService.findById(1)).thenReturn(vehicle(1));
-            when(vehicleMapper.toDTO(any(Vehicle.class))).thenReturn(dto(1));
-            mockMvc.perform(get(BASE + "/1"))
+            when(vehicleService.findByGroupId(50L)).thenReturn(vehicle(1));
+            when(vehicleMapper.toDTO(any(Vehicle.class))).thenReturn(dto(1, 50L));
+            mockMvc.perform(get(BASE + "/50"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.id").value(1));
-        }
-
-        @Test @DisplayName("404 when not found")
-        void notFound() throws Exception {
-            when(vehicleService.findById(99)).thenThrow(new NoSuchElementException("notFound.vehicle|99"));
-            mockMvc.perform(get(BASE + "/99"))
-                    .andExpect(status().isNotFound());
+                    .andExpect(jsonPath("$.data.groupId").value(50));
         }
     }
 
     @Nested @DisplayName("POST /")
     class Create {
-        @Test @DisplayName("201 without owner")
-        void createdNoOwner() throws Exception {
-            Vehicle v = vehicle(1);
-            when(vehicleService.save(any())).thenReturn(v);
-            when(vehicleMapper.toDTO(v)).thenReturn(dto(1));
+        @Test @DisplayName("201 with valid body")
+        void created() throws Exception {
+            when(vehicleService.create(any(VehicleRequest.class))).thenReturn(vehicle(1));
+            when(vehicleMapper.toDTO(any(Vehicle.class))).thenReturn(dto(1, 50L));
             mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                 {"vehicleNumber":"V-1","licensePlate":"ABC-1"}"""))
                     .andExpect(status().isCreated());
-        }
-
-        @Test @DisplayName("201 with ownerId resolves person")
-        void createdWithOwner() throws Exception {
-            Vehicle v = vehicle(1);
-            Person owner = new Person("DOC", "John", null, "Doe", null);
-            when(personService.findById(5)).thenReturn(owner);
-            when(vehicleService.save(any())).thenReturn(v);
-            when(vehicleMapper.toDTO(v)).thenReturn(dto(1));
-            mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON)
-                            .content("""
-                                {"vehicleNumber":"V-1","licensePlate":"ABC-1","ownerId":5}"""))
-                    .andExpect(status().isCreated());
-            verify(personService).findById(5);
         }
 
         @Test @DisplayName("400 when required fields missing")
@@ -131,47 +106,38 @@ class VehicleControllerTest {
         }
     }
 
-    @Nested @DisplayName("PUT /{id}")
+    @Nested @DisplayName("PUT /{groupId}")
     class Update {
         @Test @DisplayName("200 with updated vehicle")
         void updated() throws Exception {
-            Vehicle v = vehicle(1);
-            when(vehicleService.findById(1)).thenReturn(v);
-            when(vehicleService.save(any())).thenReturn(v);
-            when(vehicleMapper.toDTO(v)).thenReturn(dto(1));
-            mockMvc.perform(put(BASE + "/1").contentType(MediaType.APPLICATION_JSON)
+            when(vehicleService.update(eq(50L), any(VehicleRequest.class))).thenReturn(vehicle(1));
+            when(vehicleMapper.toDTO(any(Vehicle.class))).thenReturn(dto(1, 50L));
+            mockMvc.perform(put(BASE + "/50").contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                 {"vehicleNumber":"V-1","licensePlate":"UPD-1"}"""))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.id").value(1));
-        }
-
-        @Test @DisplayName("404 when vehicle not found")
-        void notFound() throws Exception {
-            when(vehicleService.findById(99)).thenThrow(new NoSuchElementException("notFound.vehicle|99"));
-            mockMvc.perform(put(BASE + "/99").contentType(MediaType.APPLICATION_JSON)
-                            .content("""
-                                {"vehicleNumber":"V-1","licensePlate":"ABC-1"}"""))
-                    .andExpect(status().isNotFound());
+                    .andExpect(jsonPath("$.data.groupId").value(50));
         }
     }
 
-    @Nested @DisplayName("DELETE /{id}")
+    @Nested @DisplayName("DELETE /{groupId}")
     class Delete {
-        @Test @DisplayName("200 when deleted")
+        @Test @DisplayName("200 when deactivated")
         void deleted() throws Exception {
-            Vehicle v = vehicle(1);
-            when(vehicleService.findById(1)).thenReturn(v);
-            mockMvc.perform(delete(BASE + "/1"))
+            mockMvc.perform(delete(BASE + "/50"))
                     .andExpect(status().isOk());
-            verify(vehicleService).delete(v);
+            verify(vehicleService).deactivate(50L);
         }
+    }
 
-        @Test @DisplayName("404 when not found")
-        void notFound() throws Exception {
-            when(vehicleService.findById(99)).thenThrow(new NoSuchElementException("notFound.vehicle|99"));
-            mockMvc.perform(delete(BASE + "/99"))
-                    .andExpect(status().isNotFound());
+    @Nested @DisplayName("PATCH /{groupId}/reactivate")
+    class Reactivate {
+        @Test @DisplayName("200 when reactivated")
+        void reactivated() throws Exception {
+            when(vehicleService.reactivate(50L)).thenReturn(vehicle(1));
+            mockMvc.perform(patch(BASE + "/50/reactivate"))
+                    .andExpect(status().isOk());
+            verify(vehicleService).reactivate(50L);
         }
     }
 
@@ -180,7 +146,7 @@ class VehicleControllerTest {
         @Test @DisplayName("200 with page result")
         void ok() throws Exception {
             when(vehicleService.filter(any())).thenReturn(new PageImpl<>(List.of(vehicle(1)), PageRequest.of(0, 10), 1));
-            when(vehicleMapper.toDTO(any(Vehicle.class))).thenReturn(dto(1));
+            when(vehicleMapper.toDTO(any(Vehicle.class))).thenReturn(dto(1, 50L));
             mockMvc.perform(post(BASE + "/filter").contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                 {"page":0,"size":10}"""))

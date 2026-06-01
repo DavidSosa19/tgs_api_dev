@@ -77,7 +77,7 @@ class RouteOperationalPeriodControllerTest {
 
         @Test @DisplayName("200 with list of period DTOs")
         void ok() throws Exception {
-            when(service.findAllByRoute(10)).thenReturn(List.of(period(1), period(2)));
+            when(service.findAllByRoute(10L)).thenReturn(List.of(period(1), period(2)));
 
             mockMvc.perform(get(BASE))
                     .andExpect(status().isOk())
@@ -91,7 +91,7 @@ class RouteOperationalPeriodControllerTest {
 
         @Test @DisplayName("200 with empty list when route has no periods")
         void empty() throws Exception {
-            when(service.findAllByRoute(10)).thenReturn(List.of());
+            when(service.findAllByRoute(10L)).thenReturn(List.of());
             mockMvc.perform(get(BASE))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.length()").value(0));
@@ -99,7 +99,7 @@ class RouteOperationalPeriodControllerTest {
 
         @Test @DisplayName("404 when route not found")
         void routeNotFound() throws Exception {
-            when(service.findAllByRoute(10))
+            when(service.findAllByRoute(10L))
                     .thenThrow(new ResourceNotFoundException("notFound.route|10"));
             mockMvc.perform(get(BASE)).andExpect(status().isNotFound());
         }
@@ -112,7 +112,7 @@ class RouteOperationalPeriodControllerTest {
 
         @Test @DisplayName("200 with single period DTO")
         void ok() throws Exception {
-            when(service.findById(10, 1)).thenReturn(period(1));
+            when(service.findById(10L, 1)).thenReturn(period(1));
 
             mockMvc.perform(get(BASE + "/1"))
                     .andExpect(status().isOk())
@@ -121,7 +121,7 @@ class RouteOperationalPeriodControllerTest {
 
         @Test @DisplayName("404 when period not found")
         void notFound() throws Exception {
-            when(service.findById(10, 99))
+            when(service.findById(10L, 99))
                     .thenThrow(new ResourceNotFoundException("notFound.routeOperationalPeriod|99"));
             mockMvc.perform(get(BASE + "/99")).andExpect(status().isNotFound());
         }
@@ -134,7 +134,7 @@ class RouteOperationalPeriodControllerTest {
 
         @Test @DisplayName("201 with created period DTO")
         void created() throws Exception {
-            when(service.create(eq(10), any())).thenReturn(period(1));
+            when(service.create(eq(10L), any())).thenReturn(period(1));
 
             mockMvc.perform(post(BASE)
                             .contentType(MediaType.APPLICATION_JSON)
@@ -145,7 +145,7 @@ class RouteOperationalPeriodControllerTest {
 
         @Test @DisplayName("409 when date range overlaps existing period")
         void conflict() throws Exception {
-            when(service.create(eq(10), any()))
+            when(service.create(eq(10L), any()))
                     .thenThrow(new ConflictException("conflict.routeOperationalPeriod.overlap"));
 
             mockMvc.perform(post(BASE)
@@ -170,7 +170,7 @@ class RouteOperationalPeriodControllerTest {
 
         @Test @DisplayName("200 with updated period DTO")
         void ok() throws Exception {
-            when(service.update(eq(10), eq(1), any())).thenReturn(period(1));
+            when(service.update(eq(10L), eq(1), any())).thenReturn(period(1));
 
             mockMvc.perform(put(BASE + "/1")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -181,7 +181,7 @@ class RouteOperationalPeriodControllerTest {
 
         @Test @DisplayName("404 when period not found")
         void notFound() throws Exception {
-            when(service.update(eq(10), eq(99), any()))
+            when(service.update(eq(10L), eq(99), any()))
                     .thenThrow(new ResourceNotFoundException("notFound.routeOperationalPeriod|99"));
 
             mockMvc.perform(put(BASE + "/99")
@@ -198,17 +198,17 @@ class RouteOperationalPeriodControllerTest {
 
         @Test @DisplayName("200 when period deleted successfully")
         void ok() throws Exception {
-            doNothing().when(service).delete(10, 1);
+            doNothing().when(service).delete(10L, 1);
 
             mockMvc.perform(delete(BASE + "/1"))
                     .andExpect(status().isOk());
-            verify(service).delete(10, 1);
+            verify(service).delete(10L, 1);
         }
 
         @Test @DisplayName("404 when period not found")
         void notFound() throws Exception {
             doThrow(new ResourceNotFoundException("notFound.routeOperationalPeriod|99"))
-                    .when(service).delete(10, 99);
+                    .when(service).delete(10L, 99);
 
             mockMvc.perform(delete(BASE + "/99"))
                     .andExpect(status().isNotFound());

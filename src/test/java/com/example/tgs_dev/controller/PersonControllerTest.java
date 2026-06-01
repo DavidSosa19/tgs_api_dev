@@ -2,6 +2,7 @@ package com.example.tgs_dev.controller;
 
 import com.example.tgs_dev.controller.exception.ConstraintMessageResolver;
 import com.example.tgs_dev.controller.exception.GlobalExceptionHandler;
+import com.example.tgs_dev.controller.request.PersonRequest;
 import com.example.tgs_dev.controller.response.PersonDTO;
 import com.example.tgs_dev.entity.Person;
 import com.example.tgs_dev.mapper.PersonMapper;
@@ -22,7 +23,6 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -58,8 +58,8 @@ class PersonControllerTest {
         return p;
     }
 
-    private PersonDTO dto(int id) {
-        return new PersonDTO(id, "DOC-" + id, "John", null, "Doe", null, true);
+    private PersonDTO dto(int id, long groupId) {
+        return new PersonDTO(id, groupId, "DOC-" + id, "John", null, "Doe", null, true);
     }
 
     @Nested @DisplayName("GET /")
@@ -67,7 +67,7 @@ class PersonControllerTest {
         @Test @DisplayName("200 with person list")
         void ok() throws Exception {
             when(personService.findAll()).thenReturn(List.of(person(1)));
-            when(personMapper.toDTOList(any())).thenReturn(List.of(dto(1)));
+            when(personMapper.toDTOList(any())).thenReturn(List.of(dto(1, 50L)));
             mockMvc.perform(get(BASE))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
@@ -75,22 +75,15 @@ class PersonControllerTest {
         }
     }
 
-    @Nested @DisplayName("GET /{id}")
+    @Nested @DisplayName("GET /{groupId}")
     class GetById {
         @Test @DisplayName("200 when found")
         void found() throws Exception {
-            when(personService.findById(1)).thenReturn(person(1));
-            when(personMapper.toDTO(any(Person.class))).thenReturn(dto(1));
-            mockMvc.perform(get(BASE + "/1"))
+            when(personService.findByGroupId(50L)).thenReturn(person(1));
+            when(personMapper.toDTO(any(Person.class))).thenReturn(dto(1, 50L));
+            mockMvc.perform(get(BASE + "/50"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.id").value(1));
-        }
-
-        @Test @DisplayName("404 when not found")
-        void notFound() throws Exception {
-            when(personService.findById(99)).thenThrow(new NoSuchElementException("notFound.person|99"));
-            mockMvc.perform(get(BASE + "/99"))
-                    .andExpect(status().isNotFound());
+                    .andExpect(jsonPath("$.data.groupId").value(50));
         }
     }
 
@@ -98,10 +91,8 @@ class PersonControllerTest {
     class Create {
         @Test @DisplayName("201 with valid body")
         void created() throws Exception {
-            Person p = person(1);
-            when(personMapper.toEntity(any())).thenReturn(p);
-            when(personService.save(p)).thenReturn(p);
-            when(personMapper.toDTO(p)).thenReturn(dto(1));
+            when(personService.create(any(PersonRequest.class))).thenReturn(person(1));
+            when(personMapper.toDTO(any(Person.class))).thenReturn(dto(1, 50L));
             mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                 {"documentNumber":"DOC-1","firstName":"John",
@@ -118,15 +109,13 @@ class PersonControllerTest {
         }
     }
 
-    @Nested @DisplayName("PUT /{id}")
+    @Nested @DisplayName("PUT /{groupId}")
     class Update {
         @Test @DisplayName("200 with updated person")
         void updated() throws Exception {
-            Person p = person(1);
-            when(personService.findById(1)).thenReturn(p);
-            when(personService.save(p)).thenReturn(p);
-            when(personMapper.toDTO(p)).thenReturn(dto(1));
-            mockMvc.perform(put(BASE + "/1").contentType(MediaType.APPLICATION_JSON)
+            when(personService.update(eq(50L), any(PersonRequest.class))).thenReturn(person(1));
+            when(personMapper.toDTO(any(Person.class))).thenReturn(dto(1, 50L));
+            mockMvc.perform(put(BASE + "/50").contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                 {"documentNumber":"DOC-1","firstName":"John",
                                  "firstLastName":"Doe"}"""))
@@ -134,23 +123,26 @@ class PersonControllerTest {
         }
     }
 
-    @Nested @DisplayName("DELETE /{id}")
+    @Nested @DisplayName("DELETE /{groupId}")
     class Delete {
-        @Test @DisplayName("200 when deleted")
+        @Test @DisplayName("200 when deactivated")
         void deleted() throws Exception {
-            Person p = person(1);
-            when(personService.findById(1)).thenReturn(p);
-            mockMvc.perform(delete(BASE + "/1"))
+            mockMvc.perform(delete(BASE + "/50"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
-            verify(personService).delete(p);
+            verify(personService).deactivate(50L);
         }
+    }
 
-        @Test @DisplayName("404 when not found")
-        void notFound() throws Exception {
-            when(personService.findById(99)).thenThrow(new NoSuchElementException("notFound.person|99"));
-            mockMvc.perform(delete(BASE + "/99"))
-                    .andExpect(status().isNotFound());
+    @Nested @DisplayName("PATCH /{groupId}/reactivate")
+    class Reactivate {
+        @Test @DisplayName("200 when reactivated")
+        void reactivated() throws Exception {
+            when(personService.reactivate(50L)).thenReturn(person(1));
+            mockMvc.perform(patch(BASE + "/50/reactivate"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+            verify(personService).reactivate(50L);
         }
     }
 
@@ -159,7 +151,7 @@ class PersonControllerTest {
         @Test @DisplayName("200 with page result")
         void ok() throws Exception {
             when(personService.filter(any())).thenReturn(new PageImpl<>(List.of(person(1)), PageRequest.of(0, 10), 1));
-            when(personMapper.toDTO(any(Person.class))).thenReturn(dto(1));
+            when(personMapper.toDTO(any(Person.class))).thenReturn(dto(1, 50L));
             mockMvc.perform(post(BASE + "/filter").contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                 {"page":0,"size":10}"""))

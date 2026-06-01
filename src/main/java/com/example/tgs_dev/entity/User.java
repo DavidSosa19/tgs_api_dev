@@ -70,6 +70,7 @@ public class User implements UserDetails, Activatable {
         this.roles    = roles != null ? roles : new HashSet<>();
         this.person   = person;
         this.company  = company;
+        this.active   = true;
     }
 
     @Override

@@ -8,6 +8,8 @@ import com.example.tgs_dev.repository.VehicleRotationRepository;
 import com.example.tgs_dev.repository.filter.FilterRequest;
 import com.example.tgs_dev.repository.specification.CommonSpecifications;
 import com.example.tgs_dev.repository.specification.TenantSpecifications;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class VehicleRotationService {
+
+    private static final Logger log = LoggerFactory.getLogger(VehicleRotationService.class);
 
     private final VehicleRotationRepository vehicleRotationRepository;
     private final TenantService             tenantService;
@@ -68,11 +72,36 @@ public class VehicleRotationService {
 
         int offset = getBusinessDays(rotation.getStartDate(), date);
 
-        // Sort entries by their template's start time to establish the stable
-        // slot ordering.  Slot 0 = earliest departure, slot N-1 = latest.
-        // We copy the list to avoid mutating the Hibernate collection.
-        List<RotationEntry> sortedSlots = new ArrayList<>(rotation.getEntries());
-        sortedSlots.sort(Comparator.comparing(e -> e.getScheduleTemplate().getStartTime()));
+        // Sort active entries by their template's start time to establish the
+        // stable slot ordering.  Slot 0 = earliest departure, slot N-1 = latest.
+        //
+        // @SQLRestriction has been removed from Vehicle and ScheduleTemplate, so
+        // the JOIN FETCH now loads ALL entries including inactive ones.  We identify
+        // inactive entries via the entity's own active flag instead of a null-check.
+        //
+        // Business rule: one vehicle ↔ one cartulina — both are deactivated together
+        // when a vehicle breaks down.  If the counts differ the rotation is
+        // misconfigured and must not be initialised until corrected.
+        List<RotationEntry> entries = rotation.getEntries();
+        long inactiveVehicles  = entries.stream()
+                .filter(e -> e.getVehicle()          != null && Boolean.FALSE.equals(e.getVehicle().getActive()))
+                .count();
+        long inactiveTemplates = entries.stream()
+                .filter(e -> e.getScheduleTemplate() != null && Boolean.FALSE.equals(e.getScheduleTemplate().getActive()))
+                .count();
+
+        if (inactiveVehicles != inactiveTemplates) {
+            throw new IllegalStateException(String.format(
+                    "rotation.parity.mismatch|rotationId=%d|inactiveVehicles=%d|inactiveTemplates=%d " +
+                    "— deactivate the orphan counterpart or reactivate the missing one before initializing.",
+                    rotation.getId(), inactiveVehicles, inactiveTemplates));
+        }
+
+        List<RotationEntry> sortedSlots = entries.stream()
+                .filter(e -> e.getVehicle()          != null && Boolean.TRUE.equals(e.getVehicle().getActive()))
+                .filter(e -> e.getScheduleTemplate() != null && Boolean.TRUE.equals(e.getScheduleTemplate().getActive()))
+                .sorted(Comparator.comparing(e -> e.getScheduleTemplate().getStartTime()))
+                .collect(Collectors.toCollection(ArrayList::new));
 
         // Rotate only the vehicles, keeping each template pinned to its slot.
         //

@@ -79,10 +79,19 @@ public class OperationOrchestratorService {
      * Initialises one {@link RouteOperation} (with assignments and schedules)
      * for every route that belongs to the current company on {@code date}.
      */
+    /**
+     * Initialises one {@link RouteOperation} for every active route of the
+     * current company on {@code date}.
+     *
+     * @return the number of routes that were initialised (0 if the company has
+     *         no active routes)
+     */
     @Transactional
-    public void initAllOperations(LocalDate date) {
+    public int initAllOperations(LocalDate date) {
         ScheduleInitStrategy strategy = currentStrategy();
-        routeService.findAll().forEach(route -> initDailyOperation(route, date, strategy));
+        List<Route> routes = routeService.findAll();
+        routes.forEach(route -> initDailyOperation(route, date, strategy));
+        return routes.size();
     }
 
     /**

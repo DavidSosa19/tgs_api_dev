@@ -4,7 +4,6 @@ import com.example.tgs_dev.controller.request.ScheduleTemplateRequest;
 import com.example.tgs_dev.controller.response.ApiResponse;
 import com.example.tgs_dev.controller.response.ScheduleTemplateDTO;
 import com.example.tgs_dev.entity.Route;
-import com.example.tgs_dev.entity.ScheduleTemplate;
 import com.example.tgs_dev.mapper.ScheduleTemplateMapper;
 import com.example.tgs_dev.repository.filter.FilterRequest;
 import com.example.tgs_dev.security.Permissions;
@@ -20,57 +19,76 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * REST endpoints for {@link com.example.tgs_dev.entity.ScheduleTemplate}.
+ *
+ * <p>Path-variable {@code groupId} is the SCD stable business identity
+ * ({@code schedule_template_group.id}).  {@code routeId} / {@code secondaryRouteId}
+ * in the request body are {@code route_group.id} values, resolved here to the
+ * current active {@link Route} version before delegating to the service.
+ */
 @RestController
 @RequestMapping("/api/scheduleTemplate")
 @RequiredArgsConstructor
 public class ScheduleTemplateController {
 
     private final ScheduleTemplateService scheduleTemplateService;
-    private final RouteService routeService;
-    private final ScheduleTemplateMapper scheduleTemplateMapper;
+    private final RouteService            routeService;
+    private final ScheduleTemplateMapper  scheduleTemplateMapper;
 
     @GetMapping
     @PreAuthorize("hasAuthority('" + Permissions.SCHEDULE_TEMPLATE_READ + "')")
     public ResponseEntity<ApiResponse<List<ScheduleTemplateDTO>>> getAll() {
-        List<ScheduleTemplateDTO> templates = scheduleTemplateMapper.toDTOList(scheduleTemplateService.findAll());
+        List<ScheduleTemplateDTO> templates =
+                scheduleTemplateMapper.toDTOList(scheduleTemplateService.findAll());
         return ResponseEntity.ok(ApiResponse.ok(templates));
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{groupId}")
     @PreAuthorize("hasAuthority('" + Permissions.SCHEDULE_TEMPLATE_READ + "')")
-    public ResponseEntity<ApiResponse<ScheduleTemplateDTO>> getById(@PathVariable Integer id) {
-        ScheduleTemplateDTO dto = scheduleTemplateMapper.toDTO(scheduleTemplateService.findById(id));
+    public ResponseEntity<ApiResponse<ScheduleTemplateDTO>> getById(@PathVariable Long groupId) {
+        ScheduleTemplateDTO dto = scheduleTemplateMapper.toDTO(scheduleTemplateService.findByGroupId(groupId));
         return ResponseEntity.ok(ApiResponse.ok(dto));
     }
 
     @PostMapping
     @PreAuthorize("hasAuthority('" + Permissions.SCHEDULE_TEMPLATE_WRITE + "')")
     public ResponseEntity<ApiResponse<ScheduleTemplateDTO>> create(@RequestBody @Valid ScheduleTemplateRequest request) {
-        ScheduleTemplate template = buildTemplate(request, new ScheduleTemplate());
-        ScheduleTemplateDTO dto = scheduleTemplateMapper.toDTO(scheduleTemplateService.save(template));
+        Route route          = routeService.findByGroupId(request.routeId());
+        Route secondaryRoute = request.secondaryRouteId() != null
+                ? routeService.findByGroupId(request.secondaryRouteId())
+                : null;
+        ScheduleTemplateDTO dto = scheduleTemplateMapper.toDTO(
+                scheduleTemplateService.create(request, route, secondaryRoute));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Template created successfully", dto));
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{groupId}")
     @PreAuthorize("hasAuthority('" + Permissions.SCHEDULE_TEMPLATE_WRITE + "')")
-    public ResponseEntity<ApiResponse<ScheduleTemplateDTO>> update(@PathVariable Integer id,
-                                                                    @RequestBody @Valid ScheduleTemplateRequest request) {
-        ScheduleTemplate template = scheduleTemplateService.findById(id);
-        Route route = routeService.findById(request.routeId());
+    public ResponseEntity<ApiResponse<ScheduleTemplateDTO>> update(@PathVariable Long groupId,
+                                                                   @RequestBody @Valid ScheduleTemplateRequest request) {
+        Route route          = routeService.findByGroupId(request.routeId());
         Route secondaryRoute = request.secondaryRouteId() != null
-                ? routeService.findById(request.secondaryRouteId())
+                ? routeService.findByGroupId(request.secondaryRouteId())
                 : null;
-        scheduleTemplateMapper.updateEntity(template, request, route, secondaryRoute);
-        ScheduleTemplateDTO dto = scheduleTemplateMapper.toDTO(scheduleTemplateService.save(template));
+        ScheduleTemplateDTO dto = scheduleTemplateMapper.toDTO(
+                scheduleTemplateService.update(groupId, request, route, secondaryRoute));
         return ResponseEntity.ok(ApiResponse.ok("Template updated successfully", dto));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{groupId}")
     @PreAuthorize("hasAuthority('" + Permissions.SCHEDULE_TEMPLATE_WRITE + "')")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Integer id) {
-        scheduleTemplateService.delete(scheduleTemplateService.findById(id));
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long groupId) {
+        scheduleTemplateService.deactivate(groupId);
         return ResponseEntity.ok(ApiResponse.ok("Template deleted successfully", null));
+    }
+
+    @PatchMapping("/{groupId}/reactivate")
+    @PreAuthorize("hasAuthority('" + Permissions.SCHEDULE_TEMPLATE_WRITE + "')")
+    public ResponseEntity<ApiResponse<Void>> reactivate(@PathVariable Long groupId) {
+        scheduleTemplateService.reactivate(groupId);
+        return ResponseEntity.ok(ApiResponse.ok("template.reactivated", null));
     }
 
     @PostMapping("/filter")
@@ -78,23 +96,5 @@ public class ScheduleTemplateController {
     public ResponseEntity<ApiResponse<Page<ScheduleTemplateDTO>>> filter(@RequestBody @Valid FilterRequest request) {
         Page<ScheduleTemplateDTO> page = scheduleTemplateService.filter(request).map(scheduleTemplateMapper::toDTO);
         return ResponseEntity.ok(ApiResponse.ok(page));
-    }
-
-    // ── helpers ─────────────────────────────────────────────────────────────
-
-    private ScheduleTemplate buildTemplate(ScheduleTemplateRequest request, ScheduleTemplate template) {
-        Route route = routeService.findById(request.routeId());
-        Route secondaryRoute = request.secondaryRouteId() != null
-                ? routeService.findById(request.secondaryRouteId())
-                : null;
-        template.setRoute(route);
-        template.setSecondaryRoute(secondaryRoute);
-        template.setTemplateNumber(request.templateNumber());
-        template.setName(request.name());
-        template.setStartTime(request.startTime());
-        if (request.active() != null) {
-            template.setActive(request.active());
-        }
-        return template;
     }
 }

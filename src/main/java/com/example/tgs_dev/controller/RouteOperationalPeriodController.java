@@ -23,7 +23,7 @@ import java.util.List;
  * {@link Permissions#ROUTE_WRITE} — no new permissions needed.
  */
 @RestController
-@RequestMapping("/api/routes/{routeId}/operational-periods")
+@RequestMapping("/api/routes/{groupId}/operational-periods")
 public class RouteOperationalPeriodController {
 
     private final RouteOperationalPeriodService service;
@@ -35,9 +35,9 @@ public class RouteOperationalPeriodController {
     @GetMapping
     @PreAuthorize("hasAuthority('" + Permissions.ROUTE_READ + "')")
     public ResponseEntity<ApiResponse<List<RouteOperationalPeriodDTO>>> findAll(
-            @PathVariable Integer routeId) {
+            @PathVariable Long groupId) {
 
-        List<RouteOperationalPeriodDTO> body = service.findAllByRoute(routeId)
+        List<RouteOperationalPeriodDTO> body = service.findAllByRoute(groupId)
                 .stream()
                 .map(RouteOperationalPeriodDTO::from)
                 .toList();
@@ -47,44 +47,44 @@ public class RouteOperationalPeriodController {
     @GetMapping("/{periodId}")
     @PreAuthorize("hasAuthority('" + Permissions.ROUTE_READ + "')")
     public ResponseEntity<ApiResponse<RouteOperationalPeriodDTO>> findById(
-            @PathVariable Integer routeId,
+            @PathVariable Long groupId,
             @PathVariable Integer periodId) {
 
         RouteOperationalPeriodDTO dto =
-                RouteOperationalPeriodDTO.from(service.findById(routeId, periodId));
+                RouteOperationalPeriodDTO.from(service.findById(groupId, periodId));
         return ResponseEntity.ok(ApiResponse.ok(dto));
     }
 
     @PostMapping
     @PreAuthorize("hasAuthority('" + Permissions.ROUTE_WRITE + "')")
     public ResponseEntity<ApiResponse<RouteOperationalPeriodDTO>> create(
-            @PathVariable Integer routeId,
+            @PathVariable Long groupId,
             @Valid @RequestBody RouteOperationalPeriodRequest request) {
 
         RouteOperationalPeriodDTO dto =
-                RouteOperationalPeriodDTO.from(service.create(routeId, request));
+                RouteOperationalPeriodDTO.from(service.create(groupId, request));
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(dto));
     }
 
     @PutMapping("/{periodId}")
     @PreAuthorize("hasAuthority('" + Permissions.ROUTE_WRITE + "')")
     public ResponseEntity<ApiResponse<RouteOperationalPeriodDTO>> update(
-            @PathVariable Integer routeId,
+            @PathVariable Long groupId,
             @PathVariable Integer periodId,
             @Valid @RequestBody RouteOperationalPeriodRequest request) {
 
         RouteOperationalPeriodDTO dto =
-                RouteOperationalPeriodDTO.from(service.update(routeId, periodId, request));
+                RouteOperationalPeriodDTO.from(service.update(groupId, periodId, request));
         return ResponseEntity.ok(ApiResponse.ok(dto));
     }
 
     @DeleteMapping("/{periodId}")
     @PreAuthorize("hasAuthority('" + Permissions.ROUTE_WRITE + "')")
     public ResponseEntity<ApiResponse<Void>> delete(
-            @PathVariable Integer routeId,
+            @PathVariable Long groupId,
             @PathVariable Integer periodId) {
 
-        service.delete(routeId, periodId);
+        service.delete(groupId, periodId);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 }

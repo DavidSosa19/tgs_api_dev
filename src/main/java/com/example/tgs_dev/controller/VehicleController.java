@@ -3,12 +3,9 @@ package com.example.tgs_dev.controller;
 import com.example.tgs_dev.controller.request.VehicleRequest;
 import com.example.tgs_dev.controller.response.ApiResponse;
 import com.example.tgs_dev.controller.response.VehicleDTO;
-import com.example.tgs_dev.entity.Person;
-import com.example.tgs_dev.entity.Vehicle;
 import com.example.tgs_dev.mapper.VehicleMapper;
 import com.example.tgs_dev.repository.filter.FilterRequest;
 import com.example.tgs_dev.security.Permissions;
-import com.example.tgs_dev.service.PersonService;
 import com.example.tgs_dev.service.VehicleService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,13 +17,18 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * REST endpoints for {@link com.example.tgs_dev.entity.Vehicle}.
+ *
+ * <p>Path-variable {@code groupId} is the SCD stable business identity
+ * ({@code vehicle_group.id}), not the surrogate version id.
+ */
 @RestController
 @RequestMapping("/api/vehicle")
 @RequiredArgsConstructor
 public class VehicleController {
 
     private final VehicleService vehicleService;
-    private final PersonService  personService;
     private final VehicleMapper  vehicleMapper;
 
     @GetMapping
@@ -36,36 +38,41 @@ public class VehicleController {
         return ResponseEntity.ok(ApiResponse.ok(vehicles));
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{groupId}")
     @PreAuthorize("hasAuthority('" + Permissions.VEHICLE_READ + "')")
-    public ResponseEntity<ApiResponse<VehicleDTO>> getById(@PathVariable Integer id) {
-        VehicleDTO dto = vehicleMapper.toDTO(vehicleService.findById(id));
+    public ResponseEntity<ApiResponse<VehicleDTO>> getById(@PathVariable Long groupId) {
+        VehicleDTO dto = vehicleMapper.toDTO(vehicleService.findByGroupId(groupId));
         return ResponseEntity.ok(ApiResponse.ok(dto));
     }
 
     @PostMapping
     @PreAuthorize("hasAuthority('" + Permissions.VEHICLE_WRITE + "')")
     public ResponseEntity<ApiResponse<VehicleDTO>> create(@RequestBody @Valid VehicleRequest request) {
-        Vehicle vehicle = buildVehicle(request, new Vehicle());
-        VehicleDTO dto = vehicleMapper.toDTO(vehicleService.save(vehicle));
+        VehicleDTO dto = vehicleMapper.toDTO(vehicleService.create(request));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Vehicle created successfully", dto));
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{groupId}")
     @PreAuthorize("hasAuthority('" + Permissions.VEHICLE_WRITE + "')")
-    public ResponseEntity<ApiResponse<VehicleDTO>> update(@PathVariable Integer id,
+    public ResponseEntity<ApiResponse<VehicleDTO>> update(@PathVariable Long groupId,
                                                           @RequestBody @Valid VehicleRequest request) {
-        Vehicle vehicle = buildVehicle(request, vehicleService.findById(id));
-        VehicleDTO dto = vehicleMapper.toDTO(vehicleService.save(vehicle));
+        VehicleDTO dto = vehicleMapper.toDTO(vehicleService.update(groupId, request));
         return ResponseEntity.ok(ApiResponse.ok("Vehicle updated successfully", dto));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{groupId}")
     @PreAuthorize("hasAuthority('" + Permissions.VEHICLE_WRITE + "')")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Integer id) {
-        vehicleService.delete(vehicleService.findById(id));
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long groupId) {
+        vehicleService.deactivate(groupId);
         return ResponseEntity.ok(ApiResponse.ok("Vehicle deleted successfully", null));
+    }
+
+    @PatchMapping("/{groupId}/reactivate")
+    @PreAuthorize("hasAuthority('" + Permissions.VEHICLE_WRITE + "')")
+    public ResponseEntity<ApiResponse<Void>> reactivate(@PathVariable Long groupId) {
+        vehicleService.reactivate(groupId);
+        return ResponseEntity.ok(ApiResponse.ok("vehicle.reactivated", null));
     }
 
     @PostMapping("/filter")
@@ -73,17 +80,5 @@ public class VehicleController {
     public ResponseEntity<ApiResponse<Page<VehicleDTO>>> filter(@RequestBody @Valid FilterRequest request) {
         Page<VehicleDTO> page = vehicleService.filter(request).map(vehicleMapper::toDTO);
         return ResponseEntity.ok(ApiResponse.ok(page));
-    }
-
-    // ── helpers ───────────────────────────────────────────────────────────────
-
-    private Vehicle buildVehicle(VehicleRequest request, Vehicle vehicle) {
-        vehicle.setVehicleNumber(request.vehicleNumber());
-        vehicle.setLicensePlate(request.licensePlate());
-        Person owner = request.ownerId() != null
-                ? personService.findById(request.ownerId())
-                : null;
-        vehicle.setOwner(owner);
-        return vehicle;
     }
 }

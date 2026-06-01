@@ -3,7 +3,6 @@ package com.example.tgs_dev.controller;
 import com.example.tgs_dev.controller.request.PersonRequest;
 import com.example.tgs_dev.controller.response.ApiResponse;
 import com.example.tgs_dev.controller.response.PersonDTO;
-import com.example.tgs_dev.entity.Person;
 import com.example.tgs_dev.mapper.PersonMapper;
 import com.example.tgs_dev.repository.filter.FilterRequest;
 import com.example.tgs_dev.security.Permissions;
@@ -18,6 +17,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * REST endpoints for {@link com.example.tgs_dev.entity.Person}.
+ *
+ * <p>Path-variable {@code groupId} is the SCD stable business identity
+ * ({@code person_group.id}), not the surrogate version id.
+ */
 @RestController
 @RequestMapping("/api/person")
 @RequiredArgsConstructor
@@ -33,37 +38,41 @@ public class PersonController {
         return ResponseEntity.ok(ApiResponse.ok(persons));
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{groupId}")
     @PreAuthorize("hasAuthority('" + Permissions.PERSON_READ + "')")
-    public ResponseEntity<ApiResponse<PersonDTO>> getById(@PathVariable Integer id) {
-        PersonDTO dto = personMapper.toDTO(personService.findById(id));
+    public ResponseEntity<ApiResponse<PersonDTO>> getById(@PathVariable Long groupId) {
+        PersonDTO dto = personMapper.toDTO(personService.findByGroupId(groupId));
         return ResponseEntity.ok(ApiResponse.ok(dto));
     }
 
     @PostMapping
     @PreAuthorize("hasAuthority('" + Permissions.PERSON_WRITE + "')")
     public ResponseEntity<ApiResponse<PersonDTO>> create(@RequestBody @Valid PersonRequest request) {
-        Person person = personMapper.toEntity(request);
-        PersonDTO dto = personMapper.toDTO(personService.save(person));
+        PersonDTO dto = personMapper.toDTO(personService.create(request));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Person created successfully", dto));
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{groupId}")
     @PreAuthorize("hasAuthority('" + Permissions.PERSON_WRITE + "')")
-    public ResponseEntity<ApiResponse<PersonDTO>> update(@PathVariable Integer id,
+    public ResponseEntity<ApiResponse<PersonDTO>> update(@PathVariable Long groupId,
                                                          @RequestBody @Valid PersonRequest request) {
-        Person person = personService.findById(id);
-        personMapper.updateEntity(person, request);
-        PersonDTO dto = personMapper.toDTO(personService.save(person));
+        PersonDTO dto = personMapper.toDTO(personService.update(groupId, request));
         return ResponseEntity.ok(ApiResponse.ok("Person updated successfully", dto));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{groupId}")
     @PreAuthorize("hasAuthority('" + Permissions.PERSON_WRITE + "')")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Integer id) {
-        personService.delete(personService.findById(id));
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long groupId) {
+        personService.deactivate(groupId);
         return ResponseEntity.ok(ApiResponse.ok("Person deleted successfully", null));
+    }
+
+    @PatchMapping("/{groupId}/reactivate")
+    @PreAuthorize("hasAuthority('" + Permissions.PERSON_WRITE + "')")
+    public ResponseEntity<ApiResponse<Void>> reactivate(@PathVariable Long groupId) {
+        personService.reactivate(groupId);
+        return ResponseEntity.ok(ApiResponse.ok("person.reactivated", null));
     }
 
     @PostMapping("/filter")

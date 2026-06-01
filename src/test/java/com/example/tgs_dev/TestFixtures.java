@@ -118,21 +118,6 @@ public final class TestFixtures {
     }
 
     /**
-     * Creates a {@link ScheduleTemplateVersion} with the given parameters.
-     * {@code effectiveTo} may be {@code null} for open-ended versions.
-     */
-    public static ScheduleTemplateVersion templateVersion(int id, ScheduleTemplate template,
-                                                           LocalTime startTime,
-                                                           LocalDate effectiveFrom,
-                                                           LocalDate effectiveTo) {
-        Company c = company(1, "Corp");
-        ScheduleTemplateVersion v = new ScheduleTemplateVersion(
-                template, c, "Version " + id, startTime, effectiveFrom, effectiveTo);
-        v.setId(id);
-        return v;
-    }
-
-    /**
      * Creates a {@link ScheduleProjection} test double backed by an anonymous
      * class (Spring Data's proxy interface cannot be instantiated directly).
      *

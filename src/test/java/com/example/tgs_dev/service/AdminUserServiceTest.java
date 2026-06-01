@@ -11,6 +11,7 @@ import com.example.tgs_dev.entity.Person;
 import com.example.tgs_dev.entity.User;
 import com.example.tgs_dev.repository.AppRoleRepository;
 import com.example.tgs_dev.repository.CompanyRepository;
+import com.example.tgs_dev.repository.PersonGroupRepository;
 import com.example.tgs_dev.repository.PersonRepository;
 import com.example.tgs_dev.repository.UserRepository;
 import com.example.tgs_dev.security.AppRole;
@@ -47,11 +48,12 @@ import static org.mockito.Mockito.when;
 @DisplayName("AdminUserService")
 class AdminUserServiceTest {
 
-    @Mock UserRepository    userRepository;
-    @Mock PersonRepository  personRepository;
-    @Mock CompanyRepository companyRepository;
-    @Mock AppRoleRepository appRoleRepository;
-    @Mock PasswordEncoder   passwordEncoder;
+    @Mock UserRepository        userRepository;
+    @Mock PersonRepository      personRepository;
+    @Mock PersonGroupRepository personGroupRepository;
+    @Mock CompanyRepository     companyRepository;
+    @Mock AppRoleRepository     appRoleRepository;
+    @Mock PasswordEncoder       passwordEncoder;
 
     AdminUserService service;
 
@@ -62,8 +64,8 @@ class AdminUserServiceTest {
     @BeforeEach
     void setUp() {
         service = new AdminUserService(
-                userRepository, personRepository, companyRepository,
-                appRoleRepository, passwordEncoder);
+                userRepository, personRepository, personGroupRepository,
+                companyRepository, appRoleRepository, passwordEncoder);
     }
 
     @AfterEach
@@ -263,6 +265,7 @@ class AdminUserServiceTest {
             authenticateAsSuperAdmin();
             when(companyRepository.findById(1)).thenReturn(Optional.of(COMPANY));
             when(appRoleRepository.findById(1)).thenReturn(Optional.of(USER_ROLE));
+            when(personGroupRepository.save(any())).thenAnswer(i -> i.getArgument(0));
             when(personRepository.save(any(Person.class))).thenAnswer(i -> {
                 Person p = i.getArgument(0);
                 p.setId(99);

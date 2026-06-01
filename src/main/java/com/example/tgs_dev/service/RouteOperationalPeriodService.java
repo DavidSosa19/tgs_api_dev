@@ -62,8 +62,8 @@ public class RouteOperationalPeriodService {
      * @return list of periods, empty if none exist
      */
     @Transactional(readOnly = true)
-    public List<RouteOperationalPeriod> findAllByRoute(Integer routeId) {
-        Route route = loadRouteOrThrow(routeId);
+    public List<RouteOperationalPeriod> findAllByRoute(Long groupId) {
+        Route route = loadRouteOrThrow(groupId);
         return repository.findAllByRouteAndCompany(route, tenantService.currentCompanyId());
     }
 
@@ -84,8 +84,8 @@ public class RouteOperationalPeriodService {
      * @throws ResourceNotFoundException if not found or cross-tenant
      */
     @Transactional(readOnly = true)
-    public RouteOperationalPeriod findById(Integer routeId, Integer periodId) {
-        RouteOperationalPeriod period = loadPeriodOrThrow(routeId, periodId);
+    public RouteOperationalPeriod findById(Long groupId, Integer periodId) {
+        RouteOperationalPeriod period = loadPeriodOrThrow(groupId, periodId);
         Hibernate.initialize(period.getTimeRanges());
         return period;
     }
@@ -144,9 +144,9 @@ public class RouteOperationalPeriodService {
      * @throws ConflictException if the date range overlaps an existing period
      */
     @Transactional
-    public RouteOperationalPeriod create(Integer routeId,
+    public RouteOperationalPeriod create(Long groupId,
                                          RouteOperationalPeriodRequest request) {
-        Route   route   = loadRouteOrThrow(routeId);
+        Route   route   = loadRouteOrThrow(groupId);
         Company company = tenantService.currentCompany();
 
         assertValidDateRange(request.effectiveFrom(), request.effectiveTo());
@@ -185,9 +185,9 @@ public class RouteOperationalPeriodService {
      * @throws ConflictException if the new date range overlaps another period
      */
     @Transactional
-    public RouteOperationalPeriod update(Integer routeId, Integer periodId,
+    public RouteOperationalPeriod update(Long groupId, Integer periodId,
                                           RouteOperationalPeriodRequest request) {
-        RouteOperationalPeriod period = loadPeriodOrThrow(routeId, periodId);
+        RouteOperationalPeriod period = loadPeriodOrThrow(groupId, periodId);
 
         assertValidDateRange(request.effectiveFrom(), request.effectiveTo());
         assertNoOverlap(period.getRoute(), request.effectiveFrom(), request.effectiveTo(), periodId);
@@ -217,24 +217,27 @@ public class RouteOperationalPeriodService {
      * @param periodId the period to delete
      */
     @Transactional
-    public void delete(Integer routeId, Integer periodId) {
-        RouteOperationalPeriod period = loadPeriodOrThrow(routeId, periodId);
+    public void delete(Long groupId, Integer periodId) {
+        RouteOperationalPeriod period = loadPeriodOrThrow(groupId, periodId);
         repository.softDelete(period);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private Route loadRouteOrThrow(Integer routeId) {
-        return routeService.findById(routeId);   // already tenant-scoped + 404
+    private Route loadRouteOrThrow(Long groupId) {
+        // findByGroupId resolves the current version for this group — SCD-aware.
+        return routeService.findByGroupId(groupId);
     }
 
-    private RouteOperationalPeriod loadPeriodOrThrow(Integer routeId, Integer periodId) {
+    private RouteOperationalPeriod loadPeriodOrThrow(Long groupId, Integer periodId) {
         Integer companyId = tenantService.currentCompanyId();
+        // Resolve current route version so the ownership check uses the right entity id.
+        Route route = loadRouteOrThrow(groupId);
         return repository.findOne(
                 Specification.<RouteOperationalPeriod>where(
                         CommonSpecifications.fieldEquals("id", periodId))
                         .and(TenantSpecifications.belongsToCompany(companyId))
-        ).filter(p -> p.getRoute().getId().equals(routeId))
+        ).filter(p -> p.getRoute().getId().equals(route.getId()))
          .orElseThrow(() -> new ResourceNotFoundException(
                  "notFound.routeOperationalPeriod|" + periodId));
     }

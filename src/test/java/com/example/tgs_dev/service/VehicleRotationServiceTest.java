@@ -225,7 +225,8 @@ class VehicleRotationServiceTest {
 
         @Test @DisplayName("lanza NoSuchElementException cuando no existe rotación")
         void noRotationFound_throws() {
-            when(repo.findOne(any(Specification.class))).thenReturn(Optional.empty());
+            when(repo.findByDateAndTypeEager(DAY_1, ShiftDayType.BUSINESS_DAYS, COMPANY_ID))
+                    .thenReturn(Optional.empty());
             assertThatThrownBy(() -> sut.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, DAY_1))
                     .isInstanceOf(NoSuchElementException.class);
         }
@@ -237,7 +238,8 @@ class VehicleRotationServiceTest {
             RotationEntry eB = entry("V-B", LocalTime.of(8,  0));
             RotationEntry eA = entry("V-A", LocalTime.of(6,  0)); // earliest
 
-            when(repo.findOne(any(Specification.class))).thenReturn(Optional.of(rotation(List.of(eC, eB, eA))));
+            when(repo.findByDateAndTypeEager(DAY_0, ShiftDayType.BUSINESS_DAYS, COMPANY_ID))
+                    .thenReturn(Optional.of(rotation(List.of(eC, eB, eA))));
 
             List<RotationEntry> result = sut.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, DAY_0);
 
@@ -258,7 +260,8 @@ class VehicleRotationServiceTest {
             RotationEntry eB = entry("V-B", LocalTime.of(8,  0));
             RotationEntry eC = entry("V-C", LocalTime.of(10, 0));
 
-            when(repo.findOne(any(Specification.class))).thenReturn(Optional.of(rotation(List.of(eA, eB, eC))));
+            when(repo.findByDateAndTypeEager(DAY_1, ShiftDayType.BUSINESS_DAYS, COMPANY_ID))
+                    .thenReturn(Optional.of(rotation(List.of(eA, eB, eC))));
 
             List<RotationEntry> result = sut.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, DAY_1);
 
@@ -278,7 +281,8 @@ class VehicleRotationServiceTest {
             RotationEntry eB = entry("V-B", LocalTime.of(8,  0));
             RotationEntry eC = entry("V-C", LocalTime.of(10, 0));
 
-            when(repo.findOne(any(Specification.class))).thenReturn(Optional.of(rotation(List.of(eA, eB, eC))));
+            when(repo.findByDateAndTypeEager(DAY_2, ShiftDayType.BUSINESS_DAYS, COMPANY_ID))
+                    .thenReturn(Optional.of(rotation(List.of(eA, eB, eC))));
 
             List<RotationEntry> result = sut.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, DAY_2);
 
@@ -299,7 +303,8 @@ class VehicleRotationServiceTest {
             RotationEntry eA = entry("V-A", LocalTime.of(6,  0));
             RotationEntry eB = entry("V-B", LocalTime.of(8,  0));
 
-            when(repo.findOne(any(Specification.class))).thenReturn(Optional.of(rotation(List.of(eC, eA, eB))));
+            when(repo.findByDateAndTypeEager(DAY_1, ShiftDayType.BUSINESS_DAYS, COMPANY_ID))
+                    .thenReturn(Optional.of(rotation(List.of(eC, eA, eB))));
 
             List<RotationEntry> result = sut.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, DAY_1);
 
@@ -315,7 +320,8 @@ class VehicleRotationServiceTest {
                     entry("V-A", LocalTime.of(6, 0)),
                     entry("V-B", LocalTime.of(8, 0)));
 
-            when(repo.findOne(any(Specification.class))).thenReturn(Optional.of(rotation(entries)));
+            when(repo.findByDateAndTypeEager(DAY_1, ShiftDayType.BUSINESS_DAYS, COMPANY_ID))
+                    .thenReturn(Optional.of(rotation(entries)));
 
             assertThat(sut.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, DAY_1)).hasSize(2);
         }

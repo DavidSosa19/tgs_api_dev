@@ -17,6 +17,7 @@ public class VehicleMapper {
         if (vehicle == null) return null;
         return new VehicleDTO(
                 vehicle.getId(),
+                vehicle.getGroup() != null ? vehicle.getGroup().getId() : null,
                 vehicle.getVehicleNumber(),
                 vehicle.getLicensePlate(),
                 vehicle.getActive(),

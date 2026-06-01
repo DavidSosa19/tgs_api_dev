@@ -4,16 +4,15 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.SQLRestriction;
 
 import com.example.tgs_dev.entity.Company;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
 @Table(name="vehicle", schema = "core")
-@SQLRestriction("active = true")
 public class Vehicle extends BaseAudit implements Activatable {
 
     @Id
@@ -37,6 +36,21 @@ public class Vehicle extends BaseAudit implements Activatable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
+
+    // ── SCD Type-2 versioning fields (populated by V01 migration) ────────────
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id")
+    private VehicleGroup group;
+
+    @Column(name = "version_from")
+    private LocalDateTime versionFrom;
+
+    @Column(name = "version_to")
+    private LocalDateTime versionTo;
+
+    @Column(name = "is_current")
+    private Boolean isCurrent = true;
 
     public Vehicle(String vehicleNumber, Person owner) {
         this.vehicleNumber = vehicleNumber;

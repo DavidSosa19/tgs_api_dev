@@ -10,11 +10,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalDate;
@@ -143,19 +141,21 @@ class RotationEntryServiceTest {
 
     @Nested @DisplayName("findByRotation")
     class FindByRotation {
-        @Test @DisplayName("queries repo with spec and ASC listPosition sort")
+        /**
+         * The service now delegates to {@code findByRotationEager} — a single JOIN
+         * FETCH query that loads all associations and orders by {@code listPosition ASC}
+         * in the JPQL itself.  No Sort parameter is needed at the Java level.
+         */
+        @Test @DisplayName("delegates to findByRotationEager with the correct rotation")
         void queriesRepo() {
             VehicleRotation r = rotation();
             List<RotationEntry> list = List.of(entry(1));
-            when(repo.findAll(any(Specification.class), any(Sort.class))).thenReturn(list);
+            when(repo.findByRotationEager(r)).thenReturn(list);
 
             List<RotationEntry> result = sut.findByRotation(r);
 
             assertThat(result).isSameAs(list);
-            ArgumentCaptor<Sort> sortCaptor = ArgumentCaptor.forClass(Sort.class);
-            verify(repo).findAll(any(Specification.class), sortCaptor.capture());
-            assertThat(sortCaptor.getValue().getOrderFor("listPosition").getDirection())
-                    .isEqualTo(Sort.Direction.ASC);
+            verify(repo).findByRotationEager(r);
         }
     }
 }

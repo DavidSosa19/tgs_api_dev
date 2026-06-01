@@ -14,6 +14,7 @@ public class PersonMapper {
         if (person == null) return null;
         return new PersonDTO(
                 person.getId(),
+                person.getGroup() != null ? person.getGroup().getId() : null,
                 person.getDocumentNumber(),
                 person.getFirstName(),
                 person.getSecondName(),

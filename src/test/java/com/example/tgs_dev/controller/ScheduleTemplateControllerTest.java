@@ -2,6 +2,7 @@ package com.example.tgs_dev.controller;
 
 import com.example.tgs_dev.controller.exception.ConstraintMessageResolver;
 import com.example.tgs_dev.controller.exception.GlobalExceptionHandler;
+import com.example.tgs_dev.controller.request.ScheduleTemplateRequest;
 import com.example.tgs_dev.controller.response.RouteDTO;
 import com.example.tgs_dev.controller.response.ScheduleTemplateDTO;
 import com.example.tgs_dev.entity.Route;
@@ -26,9 +27,8 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import java.time.LocalTime;
 import java.util.List;
-import java.util.NoSuchElementException;
 
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -65,9 +65,9 @@ class ScheduleTemplateControllerTest {
         return t;
     }
 
-    private ScheduleTemplateDTO dto(int id) {
-        RouteDTO routeDTO = new RouteDTO(id, "R-" + id, true);
-        return new ScheduleTemplateDTO(id, "T-" + id, "Template " + id, true, LocalTime.of(6, 0), routeDTO, null);
+    private ScheduleTemplateDTO dto(int id, long groupId) {
+        RouteDTO routeDTO = new RouteDTO(id, (long) id, "R-" + id, true);
+        return new ScheduleTemplateDTO(id, groupId, "T-" + id, "Template " + id, true, LocalTime.of(6, 0), routeDTO, null);
     }
 
     @Nested @DisplayName("GET /")
@@ -75,60 +75,54 @@ class ScheduleTemplateControllerTest {
         @Test @DisplayName("200 with template list")
         void ok() throws Exception {
             when(scheduleTemplateService.findAll()).thenReturn(List.of(template(1)));
-            when(scheduleTemplateMapper.toDTOList(any())).thenReturn(List.of(dto(1)));
+            when(scheduleTemplateMapper.toDTOList(any())).thenReturn(List.of(dto(1, 50L)));
             mockMvc.perform(get(BASE))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data").isArray());
         }
     }
 
-    @Nested @DisplayName("GET /{id}")
+    @Nested @DisplayName("GET /{groupId}")
     class GetById {
         @Test @DisplayName("200 when found")
         void found() throws Exception {
-            when(scheduleTemplateService.findById(1)).thenReturn(template(1));
-            when(scheduleTemplateMapper.toDTO(any(ScheduleTemplate.class))).thenReturn(dto(1));
-            mockMvc.perform(get(BASE + "/1"))
-                    .andExpect(status().isOk());
-        }
-
-        @Test @DisplayName("404 when not found")
-        void notFound() throws Exception {
-            when(scheduleTemplateService.findById(99)).thenThrow(new NoSuchElementException("notFound.scheduleTemplate|99"));
-            mockMvc.perform(get(BASE + "/99"))
-                    .andExpect(status().isNotFound());
+            when(scheduleTemplateService.findByGroupId(50L)).thenReturn(template(1));
+            when(scheduleTemplateMapper.toDTO(any(ScheduleTemplate.class))).thenReturn(dto(1, 50L));
+            mockMvc.perform(get(BASE + "/50"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.groupId").value(50));
         }
     }
 
     @Nested @DisplayName("POST /")
     class Create {
-        @Test @DisplayName("201 without secondary route")
+        @Test @DisplayName("201 without secondary route — resolves primary route by group id")
         void createdNoSecondary() throws Exception {
-            Route r = new Route("");
-            r.setId(1);
-            ScheduleTemplate t = template(1);
-            when(routeService.findById(1)).thenReturn(r);
-            when(scheduleTemplateService.save(any())).thenReturn(t);
-            when(scheduleTemplateMapper.toDTO(t)).thenReturn(dto(1));
+            Route r = new Route("R"); r.setId(1);
+            when(routeService.findByGroupId(100L)).thenReturn(r);
+            when(scheduleTemplateService.create(any(ScheduleTemplateRequest.class), eq(r), isNull()))
+                    .thenReturn(template(1));
+            when(scheduleTemplateMapper.toDTO(any(ScheduleTemplate.class))).thenReturn(dto(1, 50L));
             mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                {"routeId":1,"templateNumber":"T-1","name":"Template 1","startTime":"06:00:00"}"""))
+                                {"routeId":100,"templateNumber":"T-1","name":"Template 1","startTime":"06:00:00"}"""))
                     .andExpect(status().isCreated());
         }
 
-        @Test @DisplayName("201 with secondaryRouteId resolves secondary route")
+        @Test @DisplayName("201 with secondaryRouteId resolves both routes by group id")
         void createdWithSecondary() throws Exception {
-            Route r1 = new Route(""); r1.setId(1);
-            Route r2 = new Route(""); r2.setId(2);
-            ScheduleTemplate t = template(1);
-            when(routeService.findById(1)).thenReturn(r1);
-            when(routeService.findById(2)).thenReturn(r2);
-            when(scheduleTemplateService.save(any())).thenReturn(t);
-            when(scheduleTemplateMapper.toDTO(t)).thenReturn(dto(1));
+            Route r1 = new Route("R1"); r1.setId(1);
+            Route r2 = new Route("R2"); r2.setId(2);
+            when(routeService.findByGroupId(100L)).thenReturn(r1);
+            when(routeService.findByGroupId(200L)).thenReturn(r2);
+            when(scheduleTemplateService.create(any(ScheduleTemplateRequest.class), eq(r1), eq(r2)))
+                    .thenReturn(template(1));
+            when(scheduleTemplateMapper.toDTO(any(ScheduleTemplate.class))).thenReturn(dto(1, 50L));
             mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                {"routeId":1,"secondaryRouteId":2,"templateNumber":"T-1","name":"Template 1","startTime":"06:00:00"}"""))
+                                {"routeId":100,"secondaryRouteId":200,"templateNumber":"T-1","name":"Template 1","startTime":"06:00:00"}"""))
                     .andExpect(status().isCreated());
+            verify(routeService).findByGroupId(200L);
         }
 
         @Test @DisplayName("400 when required fields missing")
@@ -139,57 +133,40 @@ class ScheduleTemplateControllerTest {
         }
     }
 
-    @Nested @DisplayName("PUT /{id}")
+    @Nested @DisplayName("PUT /{groupId}")
     class Update {
-        @Test @DisplayName("200 with updated template (no secondary route)")
+        @Test @DisplayName("200 with updated template")
         void updated() throws Exception {
-            Route r = new Route(""); r.setId(1);
-            ScheduleTemplate t = template(1);
-            when(scheduleTemplateService.findById(1)).thenReturn(t);
-            when(routeService.findById(1)).thenReturn(r);
-            when(scheduleTemplateService.save(t)).thenReturn(t);
-            when(scheduleTemplateMapper.toDTO(t)).thenReturn(dto(1));
-            mockMvc.perform(put(BASE + "/1").contentType(MediaType.APPLICATION_JSON)
+            Route r = new Route("R"); r.setId(1);
+            when(routeService.findByGroupId(100L)).thenReturn(r);
+            when(scheduleTemplateService.update(eq(50L), any(ScheduleTemplateRequest.class), eq(r), isNull()))
+                    .thenReturn(template(1));
+            when(scheduleTemplateMapper.toDTO(any(ScheduleTemplate.class))).thenReturn(dto(1, 50L));
+            mockMvc.perform(put(BASE + "/50").contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                {"routeId":1,"templateNumber":"T-1","name":"Template 1","startTime":"06:00:00"}"""))
+                                {"routeId":100,"templateNumber":"T-1","name":"Template 1","startTime":"06:00:00"}"""))
                     .andExpect(status().isOk());
-            verify(routeService, times(1)).findById(1);
-        }
-
-        @Test @DisplayName("200 with secondaryRouteId resolves secondary route on update")
-        void updatedWithSecondaryRoute() throws Exception {
-            Route r1 = new Route(""); r1.setId(1);
-            Route r2 = new Route(""); r2.setId(2);
-            ScheduleTemplate t = template(1);
-            when(scheduleTemplateService.findById(1)).thenReturn(t);
-            when(routeService.findById(1)).thenReturn(r1);
-            when(routeService.findById(2)).thenReturn(r2);
-            when(scheduleTemplateService.save(t)).thenReturn(t);
-            when(scheduleTemplateMapper.toDTO(t)).thenReturn(dto(1));
-            mockMvc.perform(put(BASE + "/1").contentType(MediaType.APPLICATION_JSON)
-                            .content("""
-                                {"routeId":1,"secondaryRouteId":2,"templateNumber":"T-1","name":"Template 1","startTime":"06:00:00"}"""))
-                    .andExpect(status().isOk());
-            verify(routeService).findById(2);
         }
     }
 
-    @Nested @DisplayName("DELETE /{id}")
+    @Nested @DisplayName("DELETE /{groupId}")
     class Delete {
-        @Test @DisplayName("200 when deleted")
+        @Test @DisplayName("200 when deactivated")
         void deleted() throws Exception {
-            ScheduleTemplate t = template(1);
-            when(scheduleTemplateService.findById(1)).thenReturn(t);
-            mockMvc.perform(delete(BASE + "/1"))
+            mockMvc.perform(delete(BASE + "/50"))
                     .andExpect(status().isOk());
-            verify(scheduleTemplateService).delete(t);
+            verify(scheduleTemplateService).deactivate(50L);
         }
+    }
 
-        @Test @DisplayName("404 when not found")
-        void notFound() throws Exception {
-            when(scheduleTemplateService.findById(99)).thenThrow(new NoSuchElementException("notFound.scheduleTemplate|99"));
-            mockMvc.perform(delete(BASE + "/99"))
-                    .andExpect(status().isNotFound());
+    @Nested @DisplayName("PATCH /{groupId}/reactivate")
+    class Reactivate {
+        @Test @DisplayName("200 when reactivated")
+        void reactivated() throws Exception {
+            when(scheduleTemplateService.reactivate(50L)).thenReturn(template(1));
+            mockMvc.perform(patch(BASE + "/50/reactivate"))
+                    .andExpect(status().isOk());
+            verify(scheduleTemplateService).reactivate(50L);
         }
     }
 
@@ -198,7 +175,7 @@ class ScheduleTemplateControllerTest {
         @Test @DisplayName("200 with page result")
         void ok() throws Exception {
             when(scheduleTemplateService.filter(any())).thenReturn(new PageImpl<>(List.of(template(1)), PageRequest.of(0, 10), 1));
-            when(scheduleTemplateMapper.toDTO(any(ScheduleTemplate.class))).thenReturn(dto(1));
+            when(scheduleTemplateMapper.toDTO(any(ScheduleTemplate.class))).thenReturn(dto(1, 50L));
             mockMvc.perform(post(BASE + "/filter").contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                 {"page":0,"size":10}"""))

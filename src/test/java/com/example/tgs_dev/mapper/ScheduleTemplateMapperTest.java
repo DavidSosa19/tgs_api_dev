@@ -99,7 +99,7 @@ class ScheduleTemplateMapperTest {
         void updatesFields() {
             ScheduleTemplate t = new ScheduleTemplate(route, "OLD", "Old Name", LocalTime.of(6, 0));
             Route newRoute = new Route("");
-            var req = new ScheduleTemplateRequest(1, null, "T-NEW", "New Name", LocalTime.of(8, 0), null);
+            var req = new ScheduleTemplateRequest(1L, null, "T-NEW", "New Name", LocalTime.of(8, 0), null);
 
             sut.updateEntity(t, req, newRoute, null);
 
@@ -113,7 +113,7 @@ class ScheduleTemplateMapperTest {
         @Test @DisplayName("applies active when not null")
         void updatesActiveWhenPresent() {
             ScheduleTemplate t = new ScheduleTemplate(route, "T", "N", LocalTime.NOON);
-            var req = new ScheduleTemplateRequest(1, null, "T", "N", LocalTime.NOON, false);
+            var req = new ScheduleTemplateRequest(1L, null, "T", "N", LocalTime.NOON, false);
             sut.updateEntity(t, req, route, null);
             assertThat(t.getActive()).isFalse();
         }
@@ -122,7 +122,7 @@ class ScheduleTemplateMapperTest {
         void skipsActiveWhenNull() {
             ScheduleTemplate t = new ScheduleTemplate(route, "T", "N", LocalTime.NOON);
             t.setActive(true);
-            var req = new ScheduleTemplateRequest(1, null, "T", "N", LocalTime.NOON, null);
+            var req = new ScheduleTemplateRequest(1L, null, "T", "N", LocalTime.NOON, null);
             sut.updateEntity(t, req, route, null);
             assertThat(t.getActive()).isTrue();
         }

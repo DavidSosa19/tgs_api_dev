@@ -19,10 +19,10 @@ public interface VehicleRotationRepository extends BaseRepository<VehicleRotatio
             LEFT JOIN FETCH e.scheduleTemplate st
             LEFT JOIN FETCH st.route
             LEFT JOIN FETCH st.secondaryRoute
-            WHERE r.endDate >= :date
-              AND r.startDate <= :date
-              AND r.rotationType = :rotationType
-              AND r.company.id = :companyId
+            WHERE r.endDate      >= :date
+              AND r.startDate    <= :date
+              AND r.rotationType  = :rotationType
+              AND r.company.id    = :companyId
             """)
     Optional<VehicleRotation> findByDateAndTypeEager(
             @Param("date") LocalDate date,

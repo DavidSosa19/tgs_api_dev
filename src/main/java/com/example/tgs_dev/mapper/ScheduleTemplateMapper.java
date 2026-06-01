@@ -17,6 +17,7 @@ public class ScheduleTemplateMapper {
         if (template == null) return null;
         return new ScheduleTemplateDTO(
                 template.getId(),
+                template.getGroup() != null ? template.getGroup().getId() : null,
                 template.getTemplateNumber(),
                 template.getName(),
                 template.getActive(),

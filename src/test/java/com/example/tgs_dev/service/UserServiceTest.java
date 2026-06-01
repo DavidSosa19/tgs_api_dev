@@ -6,7 +6,6 @@ import com.example.tgs_dev.entity.AppRoleEntity;
 import com.example.tgs_dev.entity.Company;
 import com.example.tgs_dev.entity.Person;
 import com.example.tgs_dev.entity.User;
-import com.example.tgs_dev.mapper.PersonMapper;
 import com.example.tgs_dev.repository.AppRoleRepository;
 import com.example.tgs_dev.repository.CompanyRepository;
 import com.example.tgs_dev.repository.UserRepository;
@@ -35,7 +34,6 @@ class UserServiceTest {
     @Mock UserRepository    userRepo;
     @Mock PasswordEncoder   passwordEncoder;
     @Mock PersonService     personService;
-    @Mock PersonMapper      personMapper;
     @Mock AppRoleRepository appRoleRepository;
     @Mock CompanyRepository companyRepository;
     @InjectMocks UserService sut;
@@ -60,6 +58,12 @@ class UserServiceTest {
         Company c = new Company("ACME", "123-456");
         c.setId(1);
         return c;
+    }
+
+    private Person savedPerson() {
+        Person p = new Person("DOC-1", "Jane", null, "Doe", null);
+        p.setId(1);
+        return p;
     }
 
     @Nested @DisplayName("signUpUser")
@@ -89,12 +93,9 @@ class UserServiceTest {
 
         @Test @DisplayName("lanza IllegalStateException cuando el rol USER no existe en BD")
         void missingDefaultRole_throws() {
-            Person savedPerson = new Person("DOC-1", "Jane", null, "Doe", null);
-            savedPerson.setId(1);
             when(companyRepository.findById(1)).thenReturn(Optional.of(company()));
             when(personService.findByDocumentNumber("DOC-1")).thenReturn(Optional.empty());
-            when(personMapper.toEntity(any())).thenReturn(savedPerson);
-            when(personService.save(any())).thenReturn(savedPerson);
+            when(personService.create(any(PersonRequest.class))).thenReturn(savedPerson());
             when(appRoleRepository.findByName("USER")).thenReturn(Optional.empty());
 
             RegisterRequest req = registerRequest();
@@ -103,10 +104,9 @@ class UserServiceTest {
                     .hasMessageContaining("USER role not found");
         }
 
-        @Test @DisplayName("crea persona y usuario cuando el documento es nuevo")
+        @Test @DisplayName("crea persona (SCD) y usuario cuando el documento es nuevo")
         void newPerson_createsUserAndPerson() {
-            Person savedPerson = new Person("DOC-1", "Jane", null, "Doe", null);
-            savedPerson.setId(1);
+            Person saved = savedPerson();
             User savedUser = User.builder()
                     .userName("jdoe")
                     .password("encoded")
@@ -115,8 +115,7 @@ class UserServiceTest {
 
             when(companyRepository.findById(1)).thenReturn(Optional.of(company()));
             when(personService.findByDocumentNumber("DOC-1")).thenReturn(Optional.empty());
-            when(personMapper.toEntity(any())).thenReturn(savedPerson);
-            when(personService.save(savedPerson)).thenReturn(savedPerson);
+            when(personService.create(any(PersonRequest.class))).thenReturn(saved);
             when(passwordEncoder.encode("secret12")).thenReturn("encoded");
             when(appRoleRepository.findByName("USER")).thenReturn(Optional.of(userRole()));
             when(userRepo.save(any(User.class))).thenReturn(savedUser);
@@ -124,19 +123,15 @@ class UserServiceTest {
             User result = sut.signUpUser(registerRequest());
 
             assertThat(result).isSameAs(savedUser);
-            verify(personService).save(savedPerson);
+            verify(personService).create(any(PersonRequest.class));
             verify(userRepo).save(any(User.class));
         }
 
         @Test @DisplayName("el usuario guardado lleva el password encoded, nunca el plaintext")
         void newPerson_passwordIsEncoded() {
-            Person savedPerson = new Person("DOC-1", "Jane", null, "Doe", null);
-            savedPerson.setId(1);
-
             when(companyRepository.findById(1)).thenReturn(Optional.of(company()));
             when(personService.findByDocumentNumber("DOC-1")).thenReturn(Optional.empty());
-            when(personMapper.toEntity(any())).thenReturn(savedPerson);
-            when(personService.save(any())).thenReturn(savedPerson);
+            when(personService.create(any(PersonRequest.class))).thenReturn(savedPerson());
             when(passwordEncoder.encode("secret12")).thenReturn("encoded-pw");
             when(appRoleRepository.findByName("USER")).thenReturn(Optional.of(userRole()));
             when(userRepo.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -149,14 +144,11 @@ class UserServiceTest {
 
         @Test @DisplayName("el nuevo usuario recibe el rol USER de la base de datos")
         void newPerson_receivesUserRole() {
-            Person savedPerson = new Person("DOC-1", "Jane", null, "Doe", null);
-            savedPerson.setId(1);
             AppRoleEntity role = userRole();
 
             when(companyRepository.findById(1)).thenReturn(Optional.of(company()));
             when(personService.findByDocumentNumber("DOC-1")).thenReturn(Optional.empty());
-            when(personMapper.toEntity(any())).thenReturn(savedPerson);
-            when(personService.save(any())).thenReturn(savedPerson);
+            when(personService.create(any(PersonRequest.class))).thenReturn(savedPerson());
             when(passwordEncoder.encode("secret12")).thenReturn("encoded-pw");
             when(appRoleRepository.findByName("USER")).thenReturn(Optional.of(role));
             when(userRepo.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -168,14 +160,11 @@ class UserServiceTest {
 
         @Test @DisplayName("el nuevo usuario queda asociado a la empresa correcta")
         void newPerson_linkedToCorrectCompany() {
-            Person savedPerson = new Person("DOC-1", "Jane", null, "Doe", null);
-            savedPerson.setId(1);
             Company expected = company();
 
             when(companyRepository.findById(1)).thenReturn(Optional.of(expected));
             when(personService.findByDocumentNumber("DOC-1")).thenReturn(Optional.empty());
-            when(personMapper.toEntity(any())).thenReturn(savedPerson);
-            when(personService.save(any())).thenReturn(savedPerson);
+            when(personService.create(any(PersonRequest.class))).thenReturn(savedPerson());
             when(passwordEncoder.encode("secret12")).thenReturn("encoded-pw");
             when(appRoleRepository.findByName("USER")).thenReturn(Optional.of(userRole()));
             when(userRepo.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -187,13 +176,9 @@ class UserServiceTest {
 
         @Test @DisplayName("TenantContext queda limpio tras el registro (éxito)")
         void tenantContext_clearedAfterSuccess() {
-            Person savedPerson = new Person("DOC-1", "Jane", null, "Doe", null);
-            savedPerson.setId(1);
-
             when(companyRepository.findById(1)).thenReturn(Optional.of(company()));
             when(personService.findByDocumentNumber("DOC-1")).thenReturn(Optional.empty());
-            when(personMapper.toEntity(any())).thenReturn(savedPerson);
-            when(personService.save(any())).thenReturn(savedPerson);
+            when(personService.create(any(PersonRequest.class))).thenReturn(savedPerson());
             when(passwordEncoder.encode("secret12")).thenReturn("encoded-pw");
             when(appRoleRepository.findByName("USER")).thenReturn(Optional.of(userRole()));
             when(userRepo.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));

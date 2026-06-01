@@ -9,11 +9,15 @@ import com.example.tgs_dev.controller.response.admin.UserAdminDTO;
 import com.example.tgs_dev.entity.AppRoleEntity;
 import com.example.tgs_dev.entity.Company;
 import com.example.tgs_dev.entity.Person;
+import com.example.tgs_dev.entity.PersonGroup;
 import com.example.tgs_dev.entity.User;
 import com.example.tgs_dev.repository.AppRoleRepository;
 import com.example.tgs_dev.repository.CompanyRepository;
+import com.example.tgs_dev.repository.PersonGroupRepository;
 import com.example.tgs_dev.repository.PersonRepository;
 import com.example.tgs_dev.repository.UserRepository;
+
+import java.time.LocalDateTime;
 import com.example.tgs_dev.security.AppRole;
 import com.example.tgs_dev.security.Permissions;
 import org.springframework.security.access.AccessDeniedException;
@@ -44,19 +48,22 @@ import java.util.Set;
 @Service
 public class AdminUserService {
 
-    private final UserRepository    userRepository;
-    private final PersonRepository  personRepository;
-    private final CompanyRepository companyRepository;
-    private final AppRoleRepository appRoleRepository;
-    private final PasswordEncoder   passwordEncoder;
+    private final UserRepository        userRepository;
+    private final PersonRepository      personRepository;
+    private final PersonGroupRepository personGroupRepository;
+    private final CompanyRepository     companyRepository;
+    private final AppRoleRepository     appRoleRepository;
+    private final PasswordEncoder       passwordEncoder;
 
-    public AdminUserService(UserRepository    userRepository,
-                            PersonRepository  personRepository,
-                            CompanyRepository companyRepository,
-                            AppRoleRepository appRoleRepository,
-                            PasswordEncoder   passwordEncoder) {
-        this.userRepository    = userRepository;
-        this.personRepository  = personRepository;
+    public AdminUserService(UserRepository        userRepository,
+                            PersonRepository      personRepository,
+                            PersonGroupRepository personGroupRepository,
+                            CompanyRepository     companyRepository,
+                            AppRoleRepository     appRoleRepository,
+                            PasswordEncoder       passwordEncoder) {
+        this.userRepository        = userRepository;
+        this.personRepository      = personRepository;
+        this.personGroupRepository = personGroupRepository;
         this.companyRepository = companyRepository;
         this.appRoleRepository = appRoleRepository;
         this.passwordEncoder   = passwordEncoder;
@@ -65,6 +72,7 @@ public class AdminUserService {
     // ── Read ──────────────────────────────────────────────────────────────────
 
     /** Returns ALL users (active + inactive) for admin view. */
+    @Transactional(readOnly = true)
     public List<UserAdminDTO> findAll() {
         assertSuperAdmin();
         return userRepository.findAllAdmin().stream()
@@ -73,6 +81,7 @@ public class AdminUserService {
     }
 
     /** Returns ALL users (active + inactive) for a given company. */
+    @Transactional(readOnly = true)
     public List<UserAdminDTO> findByCompany(Integer companyId) {
         assertSuperAdmin();
         return userRepository.findAllByCompanyIdAdmin(companyId).stream()
@@ -81,6 +90,7 @@ public class AdminUserService {
     }
 
     /** Finds a user by ID regardless of active status. */
+    @Transactional(readOnly = true)
     public UserAdminDTO findById(Long id) {
         assertSuperAdmin();
         return toDTO(loadUserOrThrow(id));
@@ -169,6 +179,10 @@ public class AdminUserService {
             throw new BusinessException("admin.person.requiredFieldsMissing");
         }
 
+        // SCD-aware inline creation: build the person_group + first version.
+        PersonGroup group = personGroupRepository.save(
+                new PersonGroup(company, request.documentNumber()));
+
         Person newPerson = new Person(
                 request.documentNumber(),
                 request.firstName(),
@@ -177,6 +191,9 @@ public class AdminUserService {
                 request.secondLastName()
         );
         newPerson.setCompany(company);
+        newPerson.setGroup(group);
+        newPerson.setVersionFrom(LocalDateTime.now());
+        newPerson.setIsCurrent(true);
         return personRepository.save(newPerson);
     }
 
@@ -213,6 +230,7 @@ public class AdminUserService {
             Person p = u.getPerson();
             personDTO = new PersonDTO(
                     p.getId(),
+                    p.getGroup() != null ? p.getGroup().getId() : null,
                     p.getDocumentNumber(),
                     p.getFirstName(),
                     p.getSecondName(),

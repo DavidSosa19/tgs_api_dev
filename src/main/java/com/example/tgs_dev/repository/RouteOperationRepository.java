@@ -10,6 +10,9 @@ import java.util.List;
 
 public interface RouteOperationRepository extends BaseRepository<RouteOperation, Integer> {
 
+    /** True if any active operation exists for the given route. */
+    boolean existsByRouteIdAndActiveTrue(Integer routeId);
+
     /**
      * Returns all active operations for a given date and company, with the
      * {@code route} association eagerly fetched in a single JOIN query.

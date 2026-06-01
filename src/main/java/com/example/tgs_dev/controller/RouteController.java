@@ -3,7 +3,6 @@ package com.example.tgs_dev.controller;
 import com.example.tgs_dev.controller.request.RouteRequest;
 import com.example.tgs_dev.controller.response.ApiResponse;
 import com.example.tgs_dev.controller.response.RouteDTO;
-import com.example.tgs_dev.entity.Route;
 import com.example.tgs_dev.mapper.RouteMapper;
 import com.example.tgs_dev.repository.filter.FilterRequest;
 import com.example.tgs_dev.security.Permissions;
@@ -18,6 +17,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * REST endpoints for {@link com.example.tgs_dev.entity.Route}.
+ *
+ * <p>Path-variable {@code groupId} is the SCD stable business identity
+ * ({@code route_group.id}), not the surrogate version id.
+ */
 @RestController
 @RequestMapping("/api/route")
 @RequiredArgsConstructor
@@ -29,40 +34,38 @@ public class RouteController {
     @GetMapping
     @PreAuthorize("hasAuthority('" + Permissions.ROUTE_READ + "')")
     public ResponseEntity<ApiResponse<List<RouteDTO>>> getAll() {
-        List<RouteDTO> routes = routeMapper.toDTOList(routeService.findAll());
+        // Listing includes inactive routes so the UI can offer reactivation.
+        List<RouteDTO> routes = routeMapper.toDTOList(routeService.findAllCurrent());
         return ResponseEntity.ok(ApiResponse.ok(routes));
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{groupId}")
     @PreAuthorize("hasAuthority('" + Permissions.ROUTE_READ + "')")
-    public ResponseEntity<ApiResponse<RouteDTO>> getById(@PathVariable Integer id) {
-        RouteDTO dto = routeMapper.toDTO(routeService.findById(id));
+    public ResponseEntity<ApiResponse<RouteDTO>> getById(@PathVariable Long groupId) {
+        RouteDTO dto = routeMapper.toDTO(routeService.findByGroupId(groupId));
         return ResponseEntity.ok(ApiResponse.ok(dto));
     }
 
     @PostMapping
     @PreAuthorize("hasAuthority('" + Permissions.ROUTE_WRITE + "')")
     public ResponseEntity<ApiResponse<RouteDTO>> create(@RequestBody @Valid RouteRequest request) {
-        Route route = routeMapper.toEntity(request);
-        Route saved = routeService.save(route);
+        RouteDTO dto = routeMapper.toDTO(routeService.create(request));
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.ok("Route created successfully", routeMapper.toDTO(saved)));
+                .body(ApiResponse.ok("Route created successfully", dto));
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{groupId}")
     @PreAuthorize("hasAuthority('" + Permissions.ROUTE_WRITE + "')")
-    public ResponseEntity<ApiResponse<RouteDTO>> update(@PathVariable Integer id,
+    public ResponseEntity<ApiResponse<RouteDTO>> update(@PathVariable Long groupId,
                                                         @RequestBody @Valid RouteRequest request) {
-        Route route = routeService.findById(id);
-        routeMapper.updateEntity(route, request);
-        RouteDTO dto = routeMapper.toDTO(routeService.save(route));
+        RouteDTO dto = routeMapper.toDTO(routeService.update(groupId, request));
         return ResponseEntity.ok(ApiResponse.ok("Route updated successfully", dto));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{groupId}")
     @PreAuthorize("hasAuthority('" + Permissions.ROUTE_WRITE + "')")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Integer id) {
-        routeService.delete(routeService.findById(id));
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long groupId) {
+        routeService.deactivate(groupId);
         return ResponseEntity.ok(ApiResponse.ok("Route deleted successfully", null));
     }
 

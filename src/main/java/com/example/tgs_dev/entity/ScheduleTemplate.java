@@ -4,8 +4,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.SQLRestriction;
 
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.io.Serializable;
 
@@ -14,7 +14,6 @@ import java.io.Serializable;
 @NoArgsConstructor
 @Entity
 @Table(name="schedule_template",schema="core")
-@SQLRestriction("active = true")
 public class ScheduleTemplate extends BaseAudit implements Activatable {
 
     @Id
@@ -45,6 +44,21 @@ public class ScheduleTemplate extends BaseAudit implements Activatable {
 
     @Column(name="start_time")
     private LocalTime startTime;
+
+    // ── SCD Type-2 versioning fields (populated by V01 migration) ────────────
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id")
+    private ScheduleTemplateGroup group;
+
+    @Column(name = "version_from")
+    private LocalDateTime versionFrom;
+
+    @Column(name = "version_to")
+    private LocalDateTime versionTo;
+
+    @Column(name = "is_current")
+    private Boolean isCurrent = true;
 
     public ScheduleTemplate(Route route, String templateNumber, String name, LocalTime startTime) {
         this.route = route;

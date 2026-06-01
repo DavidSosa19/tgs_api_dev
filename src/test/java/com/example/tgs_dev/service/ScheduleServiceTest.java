@@ -19,7 +19,6 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
-
 import static com.example.tgs_dev.TestFixtures.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -37,11 +36,10 @@ import static org.mockito.Mockito.*;
 @DisplayName("ScheduleService – calculateVehicleSchedules")
 class ScheduleServiceTest {
 
-    @Mock ScheduleRepository              repo;
-    @Mock TenantService                   tenantService;
-    @Mock DurationResolver                durationResolver;
-    @Mock RouteOperationalPeriodService   periodService;
-    @Mock ScheduleTemplateVersionService  templateVersionService;
+    @Mock ScheduleRepository            repo;
+    @Mock TenantService                 tenantService;
+    @Mock DurationResolver              durationResolver;
+    @Mock RouteOperationalPeriodService periodService;
 
     ScheduleService sut;
 
@@ -52,15 +50,12 @@ class ScheduleServiceTest {
 
     @BeforeEach
     void setUp() {
-        sut = new ScheduleService(repo, tenantService, durationResolver,
-                                  periodService, templateVersionService);
+        sut = new ScheduleService(repo, tenantService, durationResolver, periodService);
 
         lenient().when(tenantService.currentCompany()).thenReturn(COMPANY);
         lenient().when(durationResolver.resolve(any(DurationResolverContext.class))).thenReturn(30);
         // Default: period mirrors the route's own baseDuration/cycleCount so existing
         // assertions don't break when a test doesn't need period-specific overrides.
-        // Default: mirrors the route's own baseDuration/cycleCount so existing assertions
-        // don't break when a test doesn't need a period-specific override.
         // The null guard handles Mockito's internal stub-recording invocations where
         // argument matchers produce null placeholder values.
         lenient().when(periodService.findActiveForDateOrThrow(any(), any(), any()))
@@ -73,9 +68,6 @@ class ScheduleServiceTest {
                      p.setId(0);
                      return p;
                  });
-        // Default: no active version → fall back to template defaults
-        lenient().when(templateVersionService.findActiveForDate(any(), any(), any()))
-                 .thenReturn(Optional.empty());
 
         Route route = route(1, "1");
         ScheduleTemplate template = template(100, route, LocalTime.of(6, 0));
@@ -291,40 +283,14 @@ class ScheduleServiceTest {
         }
     }
 
-    // ── ScheduleTemplateVersion resolution ────────────────────────────────────
+    // ── Template startTime resolution (now direct from entity) ────────────────
 
-    @Nested @DisplayName("ScheduleTemplateVersion resolution")
-    class TemplateVersionResolution {
-
-        private ScheduleTemplateVersion fakeVersion(ScheduleTemplate t, LocalTime startTime) {
-            ScheduleTemplateVersion v = new ScheduleTemplateVersion(
-                    t, COMPANY, "Test Version", startTime,
-                    LocalDate.of(2024, 1, 1), null);
-            v.setId(99);
-            return v;
-        }
-
-        @Test @DisplayName("first schedule uses version startTime when an active version is found")
-        void activeVersion_usesVersionStartTime() {
-            Route route = route(1, "1");
-            ScheduleTemplate t = template(100, route, LocalTime.of(6, 0));  // template default
-            RouteOperation o = operation(1, route, OP_DATE);
-            VehicleAssignment v = assignment(1, o, vehicle(10, "V-001"), t, 1);
-
-            // Version overrides startTime to 07:30
-            when(templateVersionService.findActiveForDate(eq(t), any(), eq(OP_DATE)))
-                    .thenReturn(Optional.of(fakeVersion(t, LocalTime.of(7, 30))));
-
-            sut.calculateVehicleSchedules(List.of(v));
-
-            assertThat(capturedSchedules().getFirst().getDepartureTime())
-                    .isEqualTo(LocalTime.of(7, 30));
-        }
-
-        @Test @DisplayName("first schedule uses template startTime when no version is active")
-        void noVersion_usesTemplateStartTime() {
-            // templateVersionService already returns empty by default in setUp
-            // va's template has startTime=06:00
+    @Nested @DisplayName("Template startTime")
+    class TemplateStartTime {
+        @Test @DisplayName("first schedule uses the template's startTime directly")
+        void usesTemplateStartTime() {
+            // SCD: the FK on VehicleAssignment points to the template version active
+            // at assignment creation, so template.getStartTime() is already historically correct.
             sut.calculateVehicleSchedules(List.of(va));
 
             assertThat(capturedSchedules().getFirst().getDepartureTime())
