@@ -212,10 +212,11 @@ class VehicleRotationServiceTest {
             return r;
         }
 
-        /** Creates a RotationEntry with a distinct vehicle and a template at {@code time}. */
+        /** Creates a RotationEntry with a distinct vehicle and a template keyed by {@code time}. */
         private RotationEntry entry(String vehiclePlate, LocalTime time) {
             Route route = new Route("");
-            ScheduleTemplate t = new ScheduleTemplate(route, "T-" + time, "T-" + time, time);
+            // sequenceOrder derived from hour to keep relative ordering comparable to the old startTime
+            ScheduleTemplate t = new ScheduleTemplate(route, "T-" + time, "T-" + time, time.getHour() * 60 + time.getMinute());
             Vehicle v = new Vehicle(vehiclePlate, null);
             RotationEntry e = new RotationEntry();
             e.setScheduleTemplate(t);
@@ -245,9 +246,10 @@ class VehicleRotationServiceTest {
 
             // Templates are sorted ascending: 6:00, 8:00, 10:00
             assertThat(result).hasSize(3);
-            assertThat(result.get(0).getScheduleTemplate().getStartTime()).isEqualTo(LocalTime.of(6,  0));
-            assertThat(result.get(1).getScheduleTemplate().getStartTime()).isEqualTo(LocalTime.of(8,  0));
-            assertThat(result.get(2).getScheduleTemplate().getStartTime()).isEqualTo(LocalTime.of(10, 0));
+            // Templates are sorted by sequenceOrder (hour*60+min): 360, 480, 600
+            assertThat(result.get(0).getScheduleTemplate().getSequenceOrder()).isEqualTo(360);
+            assertThat(result.get(1).getScheduleTemplate().getSequenceOrder()).isEqualTo(480);
+            assertThat(result.get(2).getScheduleTemplate().getSequenceOrder()).isEqualTo(600);
             // Vehicles match their original (offset=0) template slots
             assertThat(result.get(0).getVehicle().getVehicleNumber()).isEqualTo("V-A");
             assertThat(result.get(1).getVehicle().getVehicleNumber()).isEqualTo("V-B");
@@ -266,9 +268,10 @@ class VehicleRotationServiceTest {
             List<RotationEntry> result = sut.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, DAY_1);
 
             // Templates are UNCHANGED: slot 0 = 6:00, slot 1 = 8:00, slot 2 = 10:00
-            assertThat(result.get(0).getScheduleTemplate().getStartTime()).isEqualTo(LocalTime.of(6,  0));
-            assertThat(result.get(1).getScheduleTemplate().getStartTime()).isEqualTo(LocalTime.of(8,  0));
-            assertThat(result.get(2).getScheduleTemplate().getStartTime()).isEqualTo(LocalTime.of(10, 0));
+            // Templates are sorted by sequenceOrder (hour*60+min): 360, 480, 600
+            assertThat(result.get(0).getScheduleTemplate().getSequenceOrder()).isEqualTo(360);
+            assertThat(result.get(1).getScheduleTemplate().getSequenceOrder()).isEqualTo(480);
+            assertThat(result.get(2).getScheduleTemplate().getSequenceOrder()).isEqualTo(600);
             // Vehicles rotated by 1: V-C (was last) now fills the earliest slot
             assertThat(result.get(0).getVehicle().getVehicleNumber()).isEqualTo("V-C");
             assertThat(result.get(1).getVehicle().getVehicleNumber()).isEqualTo("V-A");
@@ -287,9 +290,10 @@ class VehicleRotationServiceTest {
             List<RotationEntry> result = sut.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, DAY_2);
 
             // Templates unchanged
-            assertThat(result.get(0).getScheduleTemplate().getStartTime()).isEqualTo(LocalTime.of(6,  0));
-            assertThat(result.get(1).getScheduleTemplate().getStartTime()).isEqualTo(LocalTime.of(8,  0));
-            assertThat(result.get(2).getScheduleTemplate().getStartTime()).isEqualTo(LocalTime.of(10, 0));
+            // Templates are sorted by sequenceOrder (hour*60+min): 360, 480, 600
+            assertThat(result.get(0).getScheduleTemplate().getSequenceOrder()).isEqualTo(360);
+            assertThat(result.get(1).getScheduleTemplate().getSequenceOrder()).isEqualTo(480);
+            assertThat(result.get(2).getScheduleTemplate().getSequenceOrder()).isEqualTo(600);
             // Vehicles rotated by 2: V-B fills slot 0, V-C fills slot 1, V-A fills slot 2
             assertThat(result.get(0).getVehicle().getVehicleNumber()).isEqualTo("V-B");
             assertThat(result.get(1).getVehicle().getVehicleNumber()).isEqualTo("V-C");
@@ -310,8 +314,8 @@ class VehicleRotationServiceTest {
 
             // Result is always time-sorted regardless of input order
             assertThat(result)
-                    .extracting(e -> e.getScheduleTemplate().getStartTime())
-                    .containsExactly(LocalTime.of(6, 0), LocalTime.of(8, 0), LocalTime.of(10, 0));
+                    .extracting(e -> e.getScheduleTemplate().getSequenceOrder())
+                    .containsExactly(360, 480, 600);
         }
 
         @Test @DisplayName("resultado siempre contiene el mismo número de entradas que la rotación original")

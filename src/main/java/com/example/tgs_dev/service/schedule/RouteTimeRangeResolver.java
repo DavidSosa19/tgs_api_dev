@@ -40,10 +40,9 @@ public final class RouteTimeRangeResolver {
      * Finds the first range in {@code ranges} that contains {@code departureTime}
      * and returns its {@code durationMinutes}.
      *
-     * @param departureTime  the time of the iteration whose duration must be resolved.
+     * @param departureTime  the time of the slot whose duration must be resolved.
      * @param ranges         sorted, non-overlapping list of candidate ranges.
-     * @return the matched duration, or {@link OptionalInt#empty()} when no range matches
-     *         (departure time falls in a gap, before all ranges, or after all ranges).
+     * @return the matched duration, or {@link OptionalInt#empty()} when no range matches.
      */
     public static OptionalInt resolve(LocalTime departureTime, List<TimeRangeLookup> ranges) {
         if (ranges == null || ranges.isEmpty()) return OptionalInt.empty();
@@ -51,6 +50,33 @@ public final class RouteTimeRangeResolver {
         for (TimeRangeLookup range : ranges) {
             if (matches(range, departureTime)) {
                 return OptionalInt.of(range.durationMinutes());
+            }
+        }
+        return OptionalInt.empty();
+    }
+
+    /**
+     * Finds the first range in {@code ranges} that contains {@code departureTime}
+     * <strong>and</strong> has a positive {@code headwayMinutes} value, then returns
+     * that headway.
+     *
+     * <p>Ranges with {@code headwayMinutes == 0} are treated as "no headway override
+     * defined" and are skipped — this allows seasonal-pattern and calendar-override
+     * lookups (which carry no headway data) to be present in the list without
+     * accidentally returning zero as a headway.  The caller's resolver chain will
+     * fall through to {@link FixedHeadwayResolver} in that case.
+     *
+     * @param departureTime  the time of the slot whose headway must be resolved.
+     * @param ranges         sorted, non-overlapping list of candidate ranges.
+     * @return the matched headway, or {@link OptionalInt#empty()} when no range
+     *         with a positive headway matches.
+     */
+    public static OptionalInt resolveHeadway(LocalTime departureTime, List<TimeRangeLookup> ranges) {
+        if (ranges == null || ranges.isEmpty()) return OptionalInt.empty();
+
+        for (TimeRangeLookup range : ranges) {
+            if (matches(range, departureTime) && range.headwayMinutes() > 0) {
+                return OptionalInt.of(range.headwayMinutes());
             }
         }
         return OptionalInt.empty();

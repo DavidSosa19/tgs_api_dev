@@ -5,9 +5,9 @@ import com.example.tgs_dev.service.strategy.AssignmentSlot;
 import com.example.tgs_dev.repository.VehicleAssignmentRepository;
 import com.example.tgs_dev.repository.specification.CommonSpecifications;
 import com.example.tgs_dev.repository.specification.TenantSpecifications;
-import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 @Service
+@Transactional(readOnly = true)
 public class VehicleAssignmentService {
 
     private static final String DEFAULT_REMOVAL_REASON  = "REMOVED";
@@ -30,6 +31,7 @@ public class VehicleAssignmentService {
         this.tenantService               = tenantService;
     }
 
+    @Transactional
     public VehicleAssignment save(VehicleAssignment vehicleAssignment) {
         if (vehicleAssignment.getCompany() == null) {
             vehicleAssignment.setCompany(tenantService.currentCompany());

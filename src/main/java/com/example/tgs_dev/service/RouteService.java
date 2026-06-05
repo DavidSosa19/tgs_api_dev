@@ -30,6 +30,8 @@ import java.util.Optional;
 @Service
 public class RouteService {
 
+    private static final String NOT_FOUND = "notFound.route|";
+
     private final RouteRepository            routeRepository;
     private final RouteGroupRepository       routeGroupRepository;
     private final ScheduleTemplateRepository scheduleTemplateRepository;
@@ -60,7 +62,7 @@ public class RouteService {
     public Route findByGroupId(Long groupId) {
         return routeRepository
                 .findCurrentByGroupId(groupId, tenantService.currentCompanyId())
-                .orElseThrow(() -> new ResourceNotFoundException("notFound.route|" + groupId));
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND + groupId));
     }
 
     /**
@@ -93,7 +95,7 @@ public class RouteService {
                 Specification.<Route>where(CommonSpecifications.fieldEquals("id", id))
                         .and(TenantSpecifications.belongsToCompany(companyId))
                         .and(TenantSpecifications.isActive())
-        ).orElseThrow(() -> new ResourceNotFoundException("notFound.route|" + id));
+        ).orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND + id));
     }
 
     @Transactional(readOnly = true)
@@ -133,7 +135,7 @@ public class RouteService {
         Integer companyId = tenantService.currentCompanyId();
         Route current = routeRepository
                 .findCurrentByGroupId(groupId, companyId)
-                .orElseThrow(() -> new ResourceNotFoundException("notFound.route|" + groupId));
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND + groupId));
 
         LocalDateTime now = LocalDateTime.now();
         current.setVersionTo(now);
@@ -150,6 +152,38 @@ public class RouteService {
     }
 
     /**
+     * Reactivates a soft-deleted route by closing the current (inactive) version
+     * and opening a new active version that copies its data — same SCD pattern
+     * used by {@link PersonService}, {@link VehicleService} and
+     * {@link ScheduleTemplateService}.
+     *
+     * @param groupId the {@link RouteGroup} id (stable SCD identity)
+     * @return the newly created active version
+     * @throws ResourceNotFoundException if the group has no current version
+     */
+    @Transactional
+    public Route reactivate(Long groupId) {
+        Integer companyId = tenantService.currentCompanyId();
+        Route last = routeRepository
+                .findCurrentByGroupId(groupId, companyId)
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND + groupId));
+
+        LocalDateTime now = LocalDateTime.now();
+        last.setVersionTo(now);
+        last.setIsCurrent(false);
+        routeRepository.save(last);
+
+        Route next = new Route(last.getRouteNumber());
+        next.setCompany(last.getCompany());
+        next.setGroup(last.getGroup());
+        next.setActive(true);
+        next.setVersionFrom(now);
+        next.setVersionTo(null);
+        next.setIsCurrent(true);
+        return routeRepository.save(next);
+    }
+
+    /**
      * Deactivates the current version after checking FK constraints.
      */
     @Transactional
@@ -157,7 +191,7 @@ public class RouteService {
         Integer companyId = tenantService.currentCompanyId();
         Route current = routeRepository
                 .findCurrentByGroupId(groupId, companyId)
-                .orElseThrow(() -> new ResourceNotFoundException("notFound.route|" + groupId));
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND + groupId));
 
         Integer id = current.getId();
         if (scheduleTemplateRepository.existsByRouteIdAndActiveTrue(id)) {

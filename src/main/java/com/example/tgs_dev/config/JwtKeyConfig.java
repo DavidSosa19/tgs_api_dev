@@ -16,6 +16,24 @@ public class JwtKeyConfig {
 
     @Bean
     public SecretKey jwtSecretKey() {
-        return Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException(
+                    "TGS_JWT_SECRET is not set. Refusing to start with an empty JWT signing key. "
+                  + "Generate one with: openssl rand -base64 64");
+        }
+        byte[] keyBytes;
+        try {
+            keyBytes = Decoders.BASE64.decode(secret);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalStateException(
+                    "TGS_JWT_SECRET is not a valid Base64 string. "
+                  + "Generate one with: openssl rand -base64 64", ex);
+        }
+        if (keyBytes.length < 64) {
+            throw new IllegalStateException(
+                    "TGS_JWT_SECRET decoded to " + keyBytes.length + " bytes; "
+                  + "HS512 requires at least 64 bytes (512 bits).");
+        }
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 }

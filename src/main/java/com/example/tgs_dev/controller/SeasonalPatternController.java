@@ -23,7 +23,7 @@ import java.util.List;
  * <p>Base path: {@code /api/route/{routeId}/seasonal-patterns}
  */
 @RestController
-@RequestMapping("/api/route/{routeId}/seasonal-patterns")
+@RequestMapping("/api/routes/{routeId}/seasonal-patterns")
 @RequiredArgsConstructor
 public class SeasonalPatternController {
 
@@ -96,6 +96,7 @@ public class SeasonalPatternController {
                 r.getRangeStart(),
                 r.getRangeEnd(),
                 r.getDurationMinutes(),
+                0,   // seasonal patterns do not carry headway config
                 r.getSortOrder(),
                 r.isCrossesMidnight());
     }

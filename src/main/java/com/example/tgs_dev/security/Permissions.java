@@ -34,8 +34,10 @@ public final class Permissions {
     public static final String ROTATION_WRITE = "ROTATION_WRITE";
 
     // ── Operations ────────────────────────────────────────────────────────────
-    public static final String OPERATION_READ   = "OPERATION_READ";
-    public static final String OPERATION_MANAGE = "OPERATION_MANAGE";
+    public static final String OPERATION_READ       = "OPERATION_READ";
+    public static final String OPERATION_MANAGE     = "OPERATION_MANAGE";
+    /** Read access to the original (init-time) operation plan and audit views. */
+    public static final String OPERATION_AUDIT_READ = "OPERATION_AUDIT_READ";
 
     // ── Users ─────────────────────────────────────────────────────────────────
     public static final String USER_READ   = "USER_READ";

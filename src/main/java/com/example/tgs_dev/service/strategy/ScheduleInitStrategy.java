@@ -4,7 +4,9 @@ import com.example.tgs_dev.entity.Route;
 import com.example.tgs_dev.entity.enums.SchedulingMode;
 
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Strategy for computing ordered vehicle-to-template assignment slots for a
@@ -58,4 +60,31 @@ public interface ScheduleInitStrategy {
      * @return ordered assignment slots; never {@code null}
      */
     List<AssignmentSlot> resolve(Route route, LocalDate date);
+
+    /**
+     * Batch variant of {@link #resolve(Route, LocalDate)} for resolving multiple
+     * routes on the same date efficiently.
+     *
+     * <p>The default implementation simply iterates {@link #resolve} per route,
+     * which is fine for strategies whose per-route cost is independent (e.g.
+     * loading from a per-route data source).  Strategies that share work across
+     * routes (e.g. {@link RotationBasedStrategy} loading one rotation that covers
+     * all routes for the day) <strong>must</strong> override this method to avoid
+     * N+1 queries.
+     *
+     * <p>The returned map preserves the order of {@code routes} via
+     * {@link LinkedHashMap}, so callers can iterate in a deterministic sequence.
+     *
+     * @param routes the routes to resolve, in the desired iteration order
+     * @param date   the service date
+     * @return a map from each route to its ordered assignment slots; entries
+     *         never have {@code null} values (empty list for routes without slots)
+     */
+    default Map<Route, List<AssignmentSlot>> resolveAll(List<Route> routes, LocalDate date) {
+        Map<Route, List<AssignmentSlot>> result = LinkedHashMap.newLinkedHashMap(routes.size());
+        for (Route route : routes) {
+            result.put(route, resolve(route, date));
+        }
+        return result;
+    }
 }

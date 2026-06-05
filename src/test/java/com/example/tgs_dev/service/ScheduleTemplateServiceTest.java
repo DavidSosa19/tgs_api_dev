@@ -20,7 +20,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.jpa.domain.Specification;
 
-import java.time.LocalTime;
+
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -65,7 +65,7 @@ class ScheduleTemplateServiceTest {
     }
 
     private static ScheduleTemplate template() {
-        ScheduleTemplate t = new ScheduleTemplate(route(), "T-01", "Morning", LocalTime.of(6, 0));
+        ScheduleTemplate t = new ScheduleTemplate(route(), "T-01", "Morning", 1);
         t.setId(1);
         t.setCompany(COMPANY);
         t.setGroup(group());
@@ -74,7 +74,7 @@ class ScheduleTemplateServiceTest {
     }
 
     private static ScheduleTemplateRequest request() {
-        return new ScheduleTemplateRequest(100L, null, "T-01", "Morning", LocalTime.of(6, 0), null);
+        return new ScheduleTemplateRequest(100L, null, "T-01", "Morning", 1, null);
     }
 
     // ── create ────────────────────────────────────────────────────────────────
@@ -170,7 +170,9 @@ class ScheduleTemplateServiceTest {
         void notFound() {
             when(scheduleTemplateRepository.findCurrentByGroupId(GROUP_ID, COMPANY_ID))
                     .thenReturn(Optional.empty());
-            assertThatThrownBy(() -> sut.update(GROUP_ID, request(), route(), null))
+            ScheduleTemplateRequest req   = request();
+            Route                   route = route();
+            assertThatThrownBy(() -> sut.update(GROUP_ID, req, route, null))
                     .isInstanceOf(NoSuchElementException.class);
             verify(scheduleTemplateRepository, never()).save(any());
         }

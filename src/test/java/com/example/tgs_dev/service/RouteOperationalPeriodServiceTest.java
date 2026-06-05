@@ -120,8 +120,8 @@ class RouteOperationalPeriodServiceTest {
     class Create {
 
         private RouteOperationalPeriodRequest req(LocalDate from, LocalDate to) {
-            return new RouteOperationalPeriodRequest("Año escolar", 30, 12, from, to,
-                                                     false, null);
+            return new RouteOperationalPeriodRequest("Año escolar", 30,
+                    LocalTime.of(6, 0), LocalTime.of(22, 0), 8, from, to, false, null);
         }
 
         @Test @DisplayName("persists and returns the new period when no overlap")
@@ -171,13 +171,14 @@ class RouteOperationalPeriodServiceTest {
             List<RouteTimeRangeRequest> ranges = List.of(
                     new RouteTimeRangeRequest(
                             LocalTime.of(6, 0), LocalTime.of(12, 0),
-                            30, false),
+                            30, 8, false),
                     new RouteTimeRangeRequest(
                             LocalTime.of(12, 0), LocalTime.of(18, 0),
-                            45, false)
+                            45, 5, false)
             );
             RouteOperationalPeriodRequest request =
-                    new RouteOperationalPeriodRequest("Vacaciones", 30, 9, FROM, TO, true, ranges);
+                    new RouteOperationalPeriodRequest("Vacaciones", 30,
+                            LocalTime.of(6, 0), LocalTime.of(22, 0), 8, FROM, TO, true, ranges);
 
             when(repository.findOverlapping(eq(ROUTE), eq(1), any(), any(), eq(-1)))
                     .thenReturn(List.of());
@@ -196,10 +197,11 @@ class RouteOperationalPeriodServiceTest {
             List<RouteTimeRangeRequest> ranges = List.of(
                     new RouteTimeRangeRequest(
                             LocalTime.of(6, 0), LocalTime.of(12, 0),
-                            30, false)
+                            30, 8, false)
             );
             RouteOperationalPeriodRequest request =
-                    new RouteOperationalPeriodRequest("Vacaciones", 30, 9, FROM, TO, true, ranges);
+                    new RouteOperationalPeriodRequest("Vacaciones", 30,
+                            LocalTime.of(6, 0), LocalTime.of(22, 0), 8, FROM, TO, true, ranges);
 
             when(repository.findOverlapping(eq(ROUTE), eq(1), any(), any(), eq(-1)))
                     .thenReturn(List.of());
@@ -216,8 +218,8 @@ class RouteOperationalPeriodServiceTest {
     class Update {
 
         private RouteOperationalPeriodRequest req() {
-            return new RouteOperationalPeriodRequest("Vacaciones", 40, 9, FROM, TO,
-                                                     false, null);
+            return new RouteOperationalPeriodRequest("Vacaciones", 40,
+                    LocalTime.of(6, 0), LocalTime.of(22, 0), 8, FROM, TO, false, null);
         }
 
         @Test @DisplayName("updates fields and saves when no overlap (excluding self)")
@@ -232,7 +234,7 @@ class RouteOperationalPeriodServiceTest {
 
             assertThat(result.getLabel()).isEqualTo("Vacaciones");
             assertThat(result.getBaseDuration()).isEqualTo(40);
-            assertThat(result.getCycleCount()).isEqualTo(9);
+            assertThat(result.getDefaultHeadwayMinutes()).isEqualTo(8);
         }
 
         @Test @DisplayName("throws ResourceNotFoundException when period not found")
@@ -268,13 +270,14 @@ class RouteOperationalPeriodServiceTest {
             List<RouteTimeRangeRequest> ranges = List.of(
                     new RouteTimeRangeRequest(
                             LocalTime.of(6, 0), LocalTime.of(12, 0),
-                            30, false),
+                            30, 8, false),
                     new RouteTimeRangeRequest(
                             LocalTime.of(12, 0), LocalTime.of(18, 0),
-                            45, false)
+                            45, 5, false)
             );
             RouteOperationalPeriodRequest request =
-                    new RouteOperationalPeriodRequest("Vacaciones", 40, 9, FROM, TO, true, ranges);
+                    new RouteOperationalPeriodRequest("Vacaciones", 40,
+                            LocalTime.of(6, 0), LocalTime.of(22, 0), 8, FROM, TO, true, ranges);
 
             RouteOperationalPeriod result = sut.update(10L, 1, request);
 

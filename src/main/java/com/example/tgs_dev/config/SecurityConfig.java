@@ -30,9 +30,17 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private static final String API_ALL   = "/api/**";
-    private static final String API_AUTH  = "/api/auth/**";
     private static final String API_ADMIN = "/api/admin/**";
+    /**
+     * Strictly public auth endpoints. {@code /api/auth/register} is intentionally
+     * NOT included — it would otherwise let any anonymous caller create a USER in
+     * any tenant by passing an arbitrary {@code companyId}. User provisioning is
+     * delegated to {@code /api/admin/users} (SUPER_ADMIN_ACCESS gated).
+     */
+    private static final String[] API_AUTH_PUBLIC = {
+            "/api/auth/login",
+            "/api/auth/refresh"
+    };
 
     private final JwtAuthenticationFilter jwtFilter;
 
@@ -49,7 +57,7 @@ public class SecurityConfig {
                 .sessionManagement(s ->
                         s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(API_AUTH).permitAll()
+                        .requestMatchers(API_AUTH_PUBLIC).permitAll()
                         // Capa 1: sólo SUPER_ADMIN puede alcanzar /api/admin/**
                         .requestMatchers(API_ADMIN).hasAuthority(Permissions.SUPER_ADMIN_ACCESS)
                         // El control granular se delega a @PreAuthorize en cada endpoint.

@@ -37,7 +37,7 @@ class RouteCalendarOverrideControllerTest {
     MockMvc mockMvc;
 
     private static final int    ROUTE_ID = 10;
-    private static final String BASE     = "/api/route/10/overrides";
+    private static final String BASE     = "/api/routes/10/overrides";
 
     private static final String VALID_BODY = """
             {

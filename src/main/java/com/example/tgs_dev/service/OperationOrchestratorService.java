@@ -3,16 +3,24 @@ package com.example.tgs_dev.service;
 import com.example.tgs_dev.entity.Company;
 import com.example.tgs_dev.entity.Route;
 import com.example.tgs_dev.entity.RouteOperation;
-import com.example.tgs_dev.entity.VehicleAssignment;
 import com.example.tgs_dev.entity.enums.SchedulingMode;
+import com.example.tgs_dev.repository.RouteOperationRepository;
 import com.example.tgs_dev.service.strategy.AssignmentSlot;
 import com.example.tgs_dev.service.strategy.ScheduleInitStrategy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+
+import com.example.tgs_dev.controller.exception.BusinessException;
+import com.example.tgs_dev.service.InitOperationsResult.RouteInitFailure;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -20,10 +28,11 @@ import java.util.stream.Collectors;
  * Orchestrates the full daily-schedule initialisation pipeline for a company:
  *
  * <pre>
- *   ScheduleInitStrategy.resolve(route, date)
- *     → RouteOperationService.initRoutOperation(route, date)
- *     → VehicleAssignmentService.assignVehicles(slots, operation)
- *     → ScheduleService.calculateVehicleSchedules(assignments)
+ *   ScheduleInitStrategy.resolveAll(routes, date)
+ *     → for each route (own transaction via OperationInitializer):
+ *         RouteOperationService.initRouteOperation(route, date)
+ *         VehicleAssignmentService.assignVehicles(slots, operation)
+ *         ScheduleService.calculateVehicleSchedules(assignments)
  * </pre>
  *
  * <h3>Strategy dispatch</h3>
@@ -33,20 +42,27 @@ import java.util.stream.Collectors;
  * {@code strategyList} constructor parameter; adding a new strategy requires
  * zero changes here.
  *
+ * <h3>Idempotency</h3>
+ * Before initialising, {@link #initAllOperations} filters out routes that already
+ * have an active {@link RouteOperation} for the target date.  Re-running the same
+ * call is therefore a no-op for those routes.
+ *
  * <h3>Transaction boundaries</h3>
- * {@link #initAllOperations} and {@link #initOperation} are the real transaction
- * boundaries.  The private helper {@code initDailyOperation} must always be
- * called within an active transaction; it is not annotated with
- * {@code @Transactional} because same-class self-invocations bypass the Spring
- * proxy.
+ * The orchestrator itself is <strong>not</strong> {@code @Transactional}.  Each
+ * route's persistence runs in its own transaction inside
+ * {@link OperationInitializer#persistOne}, so a failure on one route does not
+ * roll back the routes that were already initialised successfully.  Failures
+ * are logged at WARN and the loop continues; the return value reflects only the
+ * routes that actually completed.
  */
 @Service
 public class OperationOrchestratorService {
 
-    private final RouteOperationService                  routeOperationService;
-    private final VehicleAssignmentService               vehicleAssignmentService;
-    private final ScheduleService                        scheduleService;
+    private static final Logger log = LoggerFactory.getLogger(OperationOrchestratorService.class);
+
+    private final OperationInitializer                   initializer;
     private final RouteService                           routeService;
+    private final RouteOperationRepository               routeOperationRepository;
     private final TenantService                          tenantService;
     private final Map<SchedulingMode, ScheduleInitStrategy> strategies;
 
@@ -55,17 +71,15 @@ public class OperationOrchestratorService {
      *                     the application context; collected by Spring automatically.
      */
     public OperationOrchestratorService(
-            RouteOperationService      routeOperationService,
-            VehicleAssignmentService   vehicleAssignmentService,
-            ScheduleService            scheduleService,
+            OperationInitializer       initializer,
             RouteService               routeService,
+            RouteOperationRepository   routeOperationRepository,
             TenantService              tenantService,
             List<ScheduleInitStrategy> strategyList) {
 
-        this.routeOperationService    = routeOperationService;
-        this.vehicleAssignmentService = vehicleAssignmentService;
-        this.scheduleService          = scheduleService;
+        this.initializer              = initializer;
         this.routeService             = routeService;
+        this.routeOperationRepository = routeOperationRepository;
         this.tenantService            = tenantService;
         this.strategies = strategyList.stream()
                 .collect(Collectors.toUnmodifiableMap(
@@ -76,45 +90,95 @@ public class OperationOrchestratorService {
     // ── Public API ───────────────────────────────────────────────────────────
 
     /**
-     * Initialises one {@link RouteOperation} (with assignments and schedules)
-     * for every route that belongs to the current company on {@code date}.
-     */
-    /**
-     * Initialises one {@link RouteOperation} for every active route of the
-     * current company on {@code date}.
+     * Initialises one {@link RouteOperation} for every active route of the current
+     * company on {@code date} that does not already have one.
      *
-     * @return the number of routes that were initialised (0 if the company has
-     *         no active routes)
+     * <h3>Idempotency</h3>
+     * Routes that already have an active operation for {@code date} are counted
+     * in {@link InitOperationsResult#skipped()} — re-running this call is safe.
+     *
+     * <h3>Batch resolution</h3>
+     * Strategies that share work across routes (e.g. {@code RotationBasedStrategy}
+     * loading one rotation that covers every route of the day) implement
+     * {@link ScheduleInitStrategy#resolveAll} to do that work once.  This method
+     * dispatches a single call to {@code resolveAll} for the pending routes,
+     * eliminating O(N) query amplification.
+     *
+     * <h3>Partial failure tolerance</h3>
+     * Each route is persisted in its own transaction via
+     * {@link OperationInitializer#persistOne}.  If one route fails the failure
+     * is logged, captured in the result's {@link InitOperationsResult#failures()}
+     * list, and the loop continues; routes that already persisted remain committed.
+     *
+     * @return an {@link InitOperationsResult} carrying per-route outcomes
      */
-    @Transactional
-    public int initAllOperations(LocalDate date) {
-        ScheduleInitStrategy strategy = currentStrategy();
-        List<Route> routes = routeService.findAll();
-        routes.forEach(route -> initDailyOperation(route, date, strategy));
-        return routes.size();
+    public InitOperationsResult initAllOperations(LocalDate date) {
+        ScheduleInitStrategy strategy  = currentStrategy();
+        List<Route>          allRoutes = routeService.findAll();
+        if (allRoutes.isEmpty()) return InitOperationsResult.noop(0);
+
+        // Idempotency — skip routes that already have an active operation for the date.
+        Integer companyId = tenantService.currentCompanyId();
+        Set<Integer> alreadyInitialised = new HashSet<>(
+                routeOperationRepository.findRouteIdsWithActiveOperation(date, companyId));
+
+        List<Route> pending = allRoutes.stream()
+                .filter(r -> !alreadyInitialised.contains(r.getId()))
+                .toList();
+
+        int skipped = alreadyInitialised.size();
+        if (pending.isEmpty()) return InitOperationsResult.noop(skipped);
+
+        // One call covers every pending route — strategies sharing state avoid N+1.
+        Map<Route, List<AssignmentSlot>> slotsByRoute = strategy.resolveAll(pending, date);
+
+        int                      initialised = 0;
+        List<RouteInitFailure>   failures    = new ArrayList<>();
+
+        for (Entry<Route, List<AssignmentSlot>> e : slotsByRoute.entrySet()) {
+            Route route = e.getKey();
+            try {
+                initializer.persistOne(route, date, e.getValue());
+                initialised++;
+            } catch (RuntimeException ex) {
+                // Per-route transaction has rolled back; capture and continue so the
+                // remaining routes still get initialised.
+                log.warn("Failed to initialise operation for route {} on {}: {}",
+                        route.getRouteNumber(), date, ex.getMessage(), ex);
+                failures.add(new RouteInitFailure(
+                        route.getGroup() != null ? route.getGroup().getId() : null,
+                        route.getRouteNumber(),
+                        extractReason(ex)));
+            }
+        }
+        return new InitOperationsResult(initialised, skipped, failures);
     }
 
     /**
      * Initialises a {@link RouteOperation} for a single {@code route} on
-     * {@code date}.
+     * {@code date}.  Runs in its own transaction via
+     * {@link OperationInitializer#persistOne}.
      */
-    @Transactional
     public void initOperation(Route route, LocalDate date) {
-        initDailyOperation(route, date, currentStrategy());
+        List<AssignmentSlot> slots = currentStrategy().resolve(route, date);
+        initializer.persistOne(route, date, slots);
     }
 
-    // ── Internal pipeline ────────────────────────────────────────────────────
-
     /**
-     * Core pipeline step.  Must be called within an active transaction.
-     * <p>Calls are intentionally separated so each stage can be mocked and
-     * verified independently in tests.
+     * Extracts a serialisable reason string from a per-route failure.
+     *
+     * <p>For {@link BusinessException} we surface the i18n key + parameters that
+     * the frontend already knows how to resolve (e.g.
+     * {@code validation.period.missingDepartureTimes|15}).  For any other runtime
+     * exception we fall back to {@code SimpleName: message} so the operator can
+     * still identify the cause without having to dig through server logs.
      */
-    private void initDailyOperation(Route route, LocalDate date, ScheduleInitStrategy strategy) {
-        List<AssignmentSlot>    slots       = strategy.resolve(route, date);
-        RouteOperation                 operation   = routeOperationService.initRoutOperation(route, date);
-        List<VehicleAssignment>        assignments = vehicleAssignmentService.assignVehicles(slots, operation);
-        scheduleService.calculateVehicleSchedules(assignments);
+    private static String extractReason(RuntimeException ex) {
+        if (ex instanceof BusinessException) {
+            return ex.getMessage();
+        }
+        String msg = ex.getMessage();
+        return ex.getClass().getSimpleName() + (msg != null ? ": " + msg : "");
     }
 
     // ── Strategy resolution ──────────────────────────────────────────────────

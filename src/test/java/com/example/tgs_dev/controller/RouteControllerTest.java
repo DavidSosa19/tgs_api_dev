@@ -38,7 +38,7 @@ class RouteControllerTest {
     @Mock ConstraintMessageResolver constraintResolver;
 
     MockMvc mockMvc;
-    static final String BASE = "/api/route";
+    static final String BASE = "/api/routes";
 
     @BeforeEach
     void setUp() {

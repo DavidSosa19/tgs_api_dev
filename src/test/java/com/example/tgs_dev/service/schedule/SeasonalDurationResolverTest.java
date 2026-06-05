@@ -111,8 +111,8 @@ class SeasonalDurationResolverTest {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private DurationResolverContext ctx(LocalTime time) {
-        return new DurationResolverContext(ROUTE, time, DATE, 30, List.of());
+    private ScheduleResolverContext ctx(LocalTime time) {
+        return new ScheduleResolverContext(ROUTE, time, DATE, 30, 8, List.of());
     }
 
     private SeasonalPattern fixedPattern(int baseDuration) {

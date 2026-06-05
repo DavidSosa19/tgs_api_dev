@@ -43,4 +43,33 @@ public interface VehicleAssignmentRepository extends BaseRepository<VehicleAssig
             @Param("operation") RouteOperation operation,
             @Param("companyId") Integer companyId
     );
+
+    /**
+     * Returns <em>all</em> assignments for the given operation — including
+     * soft-deleted (inactive) ones — for the audit / original-schedule view.
+     *
+     * <p>Uses a <strong>native query</strong> so that
+     * {@code @SQLRestriction("active = true")} on {@link VehicleAssignment}
+     * does not filter out the removed assignments we explicitly want to surface.
+     *
+     * <p>{@code vehicle} and {@code scheduleTemplate} associations remain
+     * lazy — callers must access them within the same transactional scope.
+     * For the typical operation size (under 30 vehicles) the resulting
+     * lookups are acceptable; the audit endpoint is not performance-critical.
+     *
+     * @param operationId the parent operation's id
+     * @param companyId   the current tenant's company id (explicit tenant guard)
+     * @return all assignments ordered by row order, active flag visible on the entity
+     */
+    @Query(value = """
+            SELECT *
+            FROM   core.vehicle_assignment
+            WHERE  route_operation_id = :operationId
+            AND    company_id         = :companyId
+            ORDER  BY row_order ASC
+            """, nativeQuery = true)
+    List<VehicleAssignment> findAllByOperationIncludingInactive(
+            @Param("operationId") Integer operationId,
+            @Param("companyId")   Integer companyId
+    );
 }

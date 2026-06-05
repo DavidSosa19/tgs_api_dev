@@ -46,11 +46,13 @@ class RouteOperationalPeriodControllerTest {
 
     private static final String VALID_BODY = """
             {
-              "label":         "Año escolar 2024",
-              "baseDuration":  30,
-              "cycleCount":    12,
-              "effectiveFrom": "2024-01-15",
-              "effectiveTo":   "2024-11-29"
+              "label":                 "Año escolar 2024",
+              "baseDuration":          30,
+              "firstDeparture":        "06:00:00",
+              "lastDeparture":         "22:00:00",
+              "defaultHeadwayMinutes": 8,
+              "effectiveFrom":         "2024-01-15",
+              "effectiveTo":           "2024-11-29"
             }
             """;
 
@@ -85,7 +87,7 @@ class RouteOperationalPeriodControllerTest {
                     .andExpect(jsonPath("$.data.length()").value(2))
                     .andExpect(jsonPath("$.data[0].id").value(1))
                     .andExpect(jsonPath("$.data[0].baseDuration").value(30))
-                    .andExpect(jsonPath("$.data[0].cycleCount").value(12))
+                    .andExpect(jsonPath("$.data[0].defaultHeadwayMinutes").value(12))
                     .andExpect(jsonPath("$.data[0].effectiveFrom").value("2024-01-15"));
         }
 

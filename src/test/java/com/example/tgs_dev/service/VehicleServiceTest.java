@@ -155,7 +155,8 @@ class VehicleServiceTest {
         void notFound() {
             when(vehicleRepository.findCurrentByGroupId(GROUP_ID, COMPANY_ID))
                     .thenReturn(Optional.empty());
-            assertThatThrownBy(() -> sut.update(GROUP_ID, request()))
+            VehicleRequest req = request();
+            assertThatThrownBy(() -> sut.update(GROUP_ID, req))
                     .isInstanceOf(NoSuchElementException.class);
             verify(vehicleRepository, never()).save(any());
         }

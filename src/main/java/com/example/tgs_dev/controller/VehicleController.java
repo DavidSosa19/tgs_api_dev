@@ -24,7 +24,7 @@ import java.util.List;
  * ({@code vehicle_group.id}), not the surrogate version id.
  */
 @RestController
-@RequestMapping("/api/vehicle")
+@RequestMapping("/api/vehicles")
 @RequiredArgsConstructor
 public class VehicleController {
 

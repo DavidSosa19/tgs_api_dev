@@ -21,7 +21,7 @@ public class RouteOperation extends BaseAudit implements Activatable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
 
@@ -34,6 +34,16 @@ public class RouteOperation extends BaseAudit implements Activatable {
 
     @Column(name = "active", nullable = false)
     private Boolean active = true;
+
+    /**
+     * Optimistic-locking version.  Incremented on every modifying transaction
+     * (vehicle removal, recalculation, replacement).  Conflicting concurrent
+     * updates raise {@link jakarta.persistence.OptimisticLockException}, which
+     * the controller layer maps to HTTP 409.
+     */
+    @jakarta.persistence.Version
+    @Column(name = "version", nullable = false)
+    private Long version = 0L;
 
     public RouteOperation(Route route, LocalDate serviceDate) {
         this.route = route;

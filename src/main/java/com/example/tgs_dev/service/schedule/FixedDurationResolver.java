@@ -16,12 +16,12 @@ public final class FixedDurationResolver implements DurationResolver {
 
     /**
      * Returns {@code context.effectiveBaseDuration()} — the period-resolved base
-     * duration pre-computed by {@link com.example.tgs_dev.service.ScheduleService}
-     * from the active {@link com.example.tgs_dev.entity.RouteOperationalPeriod}
-     * before the chain is invoked.
+     * duration pre-computed by {@link DepartureSlotGenerator} from the active
+     * {@link com.example.tgs_dev.entity.RouteOperationalPeriod} before the chain
+     * is invoked.
      */
     @Override
-    public int resolve(DurationResolverContext context) {
+    public int resolve(ScheduleResolverContext context) {
         return context.effectiveBaseDuration();
     }
 }

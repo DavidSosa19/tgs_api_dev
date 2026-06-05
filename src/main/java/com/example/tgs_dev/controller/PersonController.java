@@ -24,7 +24,7 @@ import java.util.List;
  * ({@code person_group.id}), not the surrogate version id.
  */
 @RestController
-@RequestMapping("/api/person")
+@RequestMapping("/api/persons")
 @RequiredArgsConstructor
 public class PersonController {
 

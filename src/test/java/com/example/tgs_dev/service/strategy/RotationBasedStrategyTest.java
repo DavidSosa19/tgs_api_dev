@@ -17,7 +17,6 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 
@@ -42,8 +41,8 @@ class RotationBasedStrategyTest {
     void setUp() {
         route1 = route(1, "1");
         route2 = route(2, "2");
-        entry1 = entry(vehicle(10, "V-001"), template(100, route1, LocalTime.of(6, 0)));
-        entry2 = entry(vehicle(20, "V-002"), template(200, route2, LocalTime.of(7, 0)));
+        entry1 = entry(vehicle(10, "V-001"), template(100, route1, 1));
+        entry2 = entry(vehicle(20, "V-002"), template(200, route2, 1));
     }
 
     // ── mode() ───────────────────────────────────────────────────────────────
@@ -58,22 +57,23 @@ class RotationBasedStrategyTest {
     @Nested @DisplayName("groupByRoute (pure function)")
     class GroupByRoute {
 
-        @Test @DisplayName("groups entries by their template's route number")
-        void groupsByRouteNumber() {
-            Map<String, List<RotationEntry>> result = sut.groupByRoute(List.of(entry1, entry2));
+        @Test @DisplayName("groups entries by their template's route GROUP id (SCD-stable)")
+        void groupsByRouteGroupId() {
+            Map<Long, List<RotationEntry>> result = sut.groupByRoute(List.of(entry1, entry2));
 
-            assertThat(result).containsOnlyKeys("1", "2");
-            assertThat(result.get("1")).containsExactly(entry1);
-            assertThat(result.get("2")).containsExactly(entry2);
+            // route(1, "1") → group.id = 1L; route(2, "2") → group.id = 2L (per test fixture)
+            assertThat(result).containsOnlyKeys(1L, 2L);
+            assertThat(result.get(1L)).containsExactly(entry1);
+            assertThat(result.get(2L)).containsExactly(entry2);
         }
 
-        @Test @DisplayName("multiple entries for the same route are all grouped together")
+        @Test @DisplayName("multiple entries for the same route group are all grouped together")
         void multipleEntriesSameRoute() {
-            RotationEntry extra = entry(vehicle(30, "V-003"), template(101, route1, LocalTime.of(8, 0)));
+            RotationEntry extra = entry(vehicle(30, "V-003"), template(101, route1, 1));
 
-            Map<String, List<RotationEntry>> result = sut.groupByRoute(List.of(entry1, extra));
+            Map<Long, List<RotationEntry>> result = sut.groupByRoute(List.of(entry1, extra));
 
-            assertThat(result.get("1")).containsExactly(entry1, extra);
+            assertThat(result.get(1L)).containsExactly(entry1, extra);
         }
 
         @Test @DisplayName("empty input returns an empty map")
@@ -143,6 +143,70 @@ class RotationBasedStrategyTest {
                 assertThat(slots.get(0).getVehicle()).isEqualTo(entry1.getVehicle());
                 assertThat(slots.get(0).getScheduleTemplate()).isEqualTo(entry1.getScheduleTemplate());
             }
+        }
+    }
+
+    // ── resolveAll (batch) ────────────────────────────────────────────────────
+
+    @Nested @DisplayName("resolveAll (batch)")
+    class ResolveAll {
+
+        private static final LocalDate DATE = LocalDate.of(2024, 1, 15);
+
+        @Test @DisplayName("loads the rotation exactly ONCE regardless of route count")
+        void rotationLoadedOnce() {
+            try (MockedStatic<DateUtils> utils = mockStatic(DateUtils.class)) {
+                utils.when(() -> DateUtils.getTypeofDay(DATE)).thenReturn(ShiftDayType.BUSINESS_DAYS);
+                when(vehicleRotationService.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, DATE))
+                        .thenReturn(List.of(entry1, entry2));
+
+                sut.resolveAll(List.of(route1, route2), DATE);
+
+                verify(vehicleRotationService, times(1))
+                        .getRotationFromDate(ShiftDayType.BUSINESS_DAYS, DATE);
+            }
+        }
+
+        @Test @DisplayName("returns a map with one entry per input route, preserving order")
+        void mapHasOneEntryPerRoute() {
+            try (MockedStatic<DateUtils> utils = mockStatic(DateUtils.class)) {
+                utils.when(() -> DateUtils.getTypeofDay(DATE)).thenReturn(ShiftDayType.BUSINESS_DAYS);
+                when(vehicleRotationService.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, DATE))
+                        .thenReturn(List.of(entry1, entry2));
+
+                Map<Route, List<AssignmentSlot>> result =
+                        sut.resolveAll(List.of(route1, route2), DATE);
+
+                assertThat(result).hasSize(2);
+                assertThat(result.get(route1)).containsExactly(entry1);
+                assertThat(result.get(route2)).containsExactly(entry2);
+                // LinkedHashMap preserves insertion order
+                assertThat(result.keySet()).containsExactly(route1, route2);
+            }
+        }
+
+        @Test @DisplayName("routes absent from the rotation receive an empty list")
+        void absentRouteGetsEmptyList() {
+            Route routeX = route(99, "99");
+            try (MockedStatic<DateUtils> utils = mockStatic(DateUtils.class)) {
+                utils.when(() -> DateUtils.getTypeofDay(DATE)).thenReturn(ShiftDayType.BUSINESS_DAYS);
+                when(vehicleRotationService.getRotationFromDate(ShiftDayType.BUSINESS_DAYS, DATE))
+                        .thenReturn(List.of(entry1));
+
+                Map<Route, List<AssignmentSlot>> result =
+                        sut.resolveAll(List.of(route1, routeX), DATE);
+
+                assertThat(result.get(route1)).containsExactly(entry1);
+                assertThat(result.get(routeX)).isEmpty();
+            }
+        }
+
+        @Test @DisplayName("empty input route list short-circuits — no rotation lookup")
+        void emptyRoutesShortCircuits() {
+            Map<Route, List<AssignmentSlot>> result = sut.resolveAll(List.of(), DATE);
+
+            assertThat(result).isEmpty();
+            verifyNoInteractions(vehicleRotationService);
         }
     }
 }

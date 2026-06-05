@@ -5,7 +5,7 @@ import java.util.OptionalInt;
 
 /**
  * {@link DurationResolver} that evaluates the pre-resolved time-range configuration
- * carried on {@link DurationResolverContext#effectiveTimeRanges()}.
+ * carried on {@link ScheduleResolverContext#effectiveTimeRanges()}.
  *
  * <h3>Behaviour</h3>
  * <ol>
@@ -34,7 +34,7 @@ public final class TimeRangeDurationResolver implements DurationResolver {
     }
 
     @Override
-    public int resolve(DurationResolverContext context) {
+    public int resolve(ScheduleResolverContext context) {
         List<TimeRangeLookup> ranges = context.effectiveTimeRanges();
         if (ranges.isEmpty()) {
             return next.resolve(context);

@@ -5,7 +5,6 @@ import com.example.tgs_dev.entity.Company;
 import com.example.tgs_dev.entity.Person;
 import com.example.tgs_dev.entity.Vehicle;
 import com.example.tgs_dev.entity.VehicleGroup;
-import com.example.tgs_dev.repository.PersonRepository;
 import com.example.tgs_dev.repository.VehicleGroupRepository;
 import com.example.tgs_dev.repository.VehicleRepository;
 import com.example.tgs_dev.repository.filter.FilterRequest;
@@ -28,6 +27,8 @@ import java.util.Optional;
  */
 @Service
 public class VehicleService {
+
+    private static final String NOT_FOUND = "notFound.vehicle|";
 
     private final VehicleRepository      vehicleRepository;
     private final VehicleGroupRepository vehicleGroupRepository;
@@ -56,7 +57,7 @@ public class VehicleService {
     public Vehicle findByGroupId(Long groupId) {
         return vehicleRepository
                 .findCurrentByGroupId(groupId, tenantService.currentCompanyId())
-                .orElseThrow(() -> new NoSuchElementException("notFound.vehicle|" + groupId));
+                .orElseThrow(() -> new NoSuchElementException(NOT_FOUND + groupId));
     }
 
     /**
@@ -79,7 +80,7 @@ public class VehicleService {
                 Specification.<Vehicle>where(CommonSpecifications.fieldEquals("id", id))
                         .and(TenantSpecifications.belongsToCompany(tenantService.currentCompanyId()))
                         .and(TenantSpecifications.isActive())
-        ).orElseThrow(() -> new NoSuchElementException("notFound.vehicle|" + id));
+        ).orElseThrow(() -> new NoSuchElementException(NOT_FOUND + id));
     }
 
     @Transactional(readOnly = true)
@@ -119,7 +120,7 @@ public class VehicleService {
         Integer companyId = tenantService.currentCompanyId();
         Vehicle current = vehicleRepository
                 .findCurrentByGroupId(groupId, companyId)
-                .orElseThrow(() -> new NoSuchElementException("notFound.vehicle|" + groupId));
+                .orElseThrow(() -> new NoSuchElementException(NOT_FOUND + groupId));
 
         LocalDateTime now = LocalDateTime.now();
         current.setVersionTo(now);
@@ -143,7 +144,7 @@ public class VehicleService {
         Integer companyId = tenantService.currentCompanyId();
         Vehicle current = vehicleRepository
                 .findCurrentByGroupId(groupId, companyId)
-                .orElseThrow(() -> new NoSuchElementException("notFound.vehicle|" + groupId));
+                .orElseThrow(() -> new NoSuchElementException(NOT_FOUND + groupId));
         vehicleRepository.softDelete(current);
     }
 
@@ -155,7 +156,7 @@ public class VehicleService {
         Integer companyId = tenantService.currentCompanyId();
         Vehicle last = vehicleRepository
                 .findCurrentByGroupId(groupId, companyId)
-                .orElseThrow(() -> new NoSuchElementException("notFound.vehicle|" + groupId));
+                .orElseThrow(() -> new NoSuchElementException(NOT_FOUND + groupId));
 
         LocalDateTime now = LocalDateTime.now();
         last.setVersionTo(now);

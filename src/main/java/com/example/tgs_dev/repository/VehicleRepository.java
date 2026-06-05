@@ -2,7 +2,6 @@ package com.example.tgs_dev.repository;
 
 import com.example.tgs_dev.entity.Vehicle;
 import com.example.tgs_dev.repository.base.BaseRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 

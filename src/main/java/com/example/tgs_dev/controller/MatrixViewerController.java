@@ -45,6 +45,28 @@ public class MatrixViewerController {
     }
 
     /**
+     * Returns the operation's <strong>original plan</strong> — every assignment
+     * that ever existed (including soft-deleted ones) paired with its
+     * {@code ORIGINAL} schedules regardless of whether they were later
+     * superseded by recalculations or replacements.
+     *
+     * <p>Used to audit "what was originally planned at init" and to render
+     * historical context next to the current view.  Requires the audit
+     * permission since the data set may include removed vehicles that the
+     * operational view excludes.
+     *
+     * @param id the route operation ID
+     * @return {@code 200} with the original schedule DTO; {@code 404} if the
+     *         operation does not exist for the current tenant
+     */
+    @GetMapping("/route-operations/{id}/original-schedule")
+    @PreAuthorize("hasAuthority('" + Permissions.OPERATION_AUDIT_READ + "')")
+    public ResponseEntity<ApiResponse<OperationScheduleDTO>> getOriginalOperationSchedules(
+            @PathVariable Integer id) {
+        return ResponseEntity.ok(ApiResponse.ok(matrixService.getOriginalOperationSchedules(id)));
+    }
+
+    /**
      * @deprecated Replaced by {@link #getOperationSchedules(Integer)}.
      *             Use {@code GET /route-operations/{id}/schedules} for new code.
      *             This endpoint will be removed in a future release.

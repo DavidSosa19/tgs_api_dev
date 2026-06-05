@@ -24,7 +24,7 @@ import java.util.List;
  * ({@code route_group.id}), not the surrogate version id.
  */
 @RestController
-@RequestMapping("/api/route")
+@RequestMapping("/api/routes")
 @RequiredArgsConstructor
 public class RouteController {
 
@@ -67,6 +67,13 @@ public class RouteController {
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long groupId) {
         routeService.deactivate(groupId);
         return ResponseEntity.ok(ApiResponse.ok("Route deleted successfully", null));
+    }
+
+    @PatchMapping("/{groupId}/reactivate")
+    @PreAuthorize("hasAuthority('" + Permissions.ROUTE_WRITE + "')")
+    public ResponseEntity<ApiResponse<RouteDTO>> reactivate(@PathVariable Long groupId) {
+        RouteDTO dto = routeMapper.toDTO(routeService.reactivate(groupId));
+        return ResponseEntity.ok(ApiResponse.ok("route.reactivated", dto));
     }
 
     @PostMapping("/filter")

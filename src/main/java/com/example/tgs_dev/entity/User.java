@@ -36,7 +36,10 @@ public class User implements UserDetails, Activatable {
     @Column(nullable = false)
     private String password;
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    // LAZY: roles+permissions are eagerly fetched by UserRepository.findByUserName
+    // via @EntityGraph so getAuthorities() never triggers a per-request join cascade
+    // on unrelated User loads (e.g. admin listings).
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             schema = "core",
             name = "user_role",
@@ -55,7 +58,7 @@ public class User implements UserDetails, Activatable {
     @Nullable
     private Person person;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
 

@@ -38,7 +38,7 @@ class VehicleControllerTest {
     @Mock ConstraintMessageResolver constraintResolver;
 
     MockMvc mockMvc;
-    static final String BASE = "/api/vehicle";
+    static final String BASE = "/api/vehicles";
 
     @BeforeEach
     void setUp() {

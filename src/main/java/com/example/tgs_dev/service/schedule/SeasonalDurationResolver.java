@@ -53,7 +53,7 @@ public final class SeasonalDurationResolver implements DurationResolver {
     }
 
     @Override
-    public int resolve(DurationResolverContext context) {
+    public int resolve(ScheduleResolverContext context) {
         Optional<SeasonalPattern> maybePattern =
                 seasonalPatternService.findActivePatternForDate(
                         context.route(), context.operationDate());
@@ -78,8 +78,10 @@ public final class SeasonalDurationResolver implements DurationResolver {
 
     private static List<TimeRangeLookup> toLookups(List<SeasonalPatternRange> ranges) {
         if (ranges == null) return List.of();
+        // Seasonal patterns carry duration data only — headwayMinutes = 0 signals
+        // "no headway override here" to RouteTimeRangeResolver.resolveHeadway().
         return ranges.stream()
-                .map(r -> new TimeRangeLookup(
+                .map(r -> TimeRangeLookup.durationOnly(
                         r.getRangeStart(),
                         r.getRangeEnd(),
                         r.getDurationMinutes(),

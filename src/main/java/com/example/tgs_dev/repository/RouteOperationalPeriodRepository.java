@@ -3,6 +3,7 @@ package com.example.tgs_dev.repository;
 import com.example.tgs_dev.entity.Route;
 import com.example.tgs_dev.entity.RouteOperationalPeriod;
 import com.example.tgs_dev.repository.base.BaseRepository;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -44,7 +45,7 @@ public interface RouteOperationalPeriodRepository
 
     /**
      * Returns the single active period whose date window contains {@code date},
-     * or {@code empty()} if no period covers that date.
+     * with the {@code timeRanges} collection eagerly initialized.
      *
      * <p>A period covers a date when:
      * <ul>
@@ -54,29 +55,51 @@ public interface RouteOperationalPeriodRepository
      * </ul>
      *
      * <p>In a valid dataset there is at most one such period per
-     * (route, company, date) tuple — the service layer enforces non-overlap
-     * on write.  The {@code ORDER BY effectiveFrom DESC LIMIT 1} is a
-     * safety-net that returns the most-recently-started period in the unlikely
-     * case of a data integrity issue.
+     * (route, company, date) tuple — the service layer enforces non-overlap on write,
+     * and PostgreSQL's EXCLUDE constraint provides defence-in-depth.  The
+     * {@code ORDER BY effectiveFrom DESC} combined with {@link Limit#of(int) Limit.of(1)}
+     * is a safety-net that returns the most-recently-started period in the unlikely
+     * case of legacy overlap, avoiding {@code NonUniqueResultException}.
+     *
+     * <p>Uses {@code LEFT JOIN FETCH p.timeRanges} so the collection is hydrated in
+     * the same query.  Without it, {@code DepartureSlotGenerator} would dispatch a
+     * lazy SELECT on every call, doubling the query count in
+     * {@code OperationOrchestratorService.initAllOperations}.
+     *
+     * <p>Returns {@link List} instead of {@link Optional} to combine ORDER BY with
+     * row-limit cleanly; the caller should take {@code stream().findFirst()}.
      *
      * @param route     the parent route
      * @param companyId the current tenant's company ID
      * @param date      the operation's service date
-     * @return the active period for that date, or empty
+     * @return at most one period (size 0 or 1) with {@code timeRanges} initialized
      */
     @Query("""
             SELECT p FROM RouteOperationalPeriod p
+            LEFT   JOIN FETCH p.timeRanges
             WHERE  p.route      = :route
             AND    p.company.id = :companyId
             AND    p.effectiveFrom <= :date
             AND    (p.effectiveTo IS NULL OR p.effectiveTo >= :date)
             ORDER  BY p.effectiveFrom DESC
             """)
-    Optional<RouteOperationalPeriod> findActiveForDate(
+    List<RouteOperationalPeriod> findActiveForDate(
             @Param("route")      Route     route,
             @Param("companyId")  Integer   companyId,
-            @Param("date")       LocalDate date
+            @Param("date")       LocalDate date,
+            Limit                          limit
     );
+
+    /**
+     * Convenience wrapper that returns the most-recently-started period covering
+     * {@code date}, or empty if none exists.  Always applies {@code Limit.of(1)}.
+     */
+    default Optional<RouteOperationalPeriod> findActiveForDate(Route route,
+                                                                Integer companyId,
+                                                                LocalDate date) {
+        return findActiveForDate(route, companyId, date, Limit.of(1))
+                .stream().findFirst();
+    }
 
     /**
      * Returns all active periods that overlap with {@code [effectiveFrom, effectiveTo]},

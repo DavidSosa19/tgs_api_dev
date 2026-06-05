@@ -19,11 +19,12 @@ import java.time.LocalDateTime;
 public class OperationEvent extends BaseAudit{
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "operation_event_id_seq")
+    @SequenceGenerator(name = "operation_event_id_seq", sequenceName = "core.operation_event_id_seq", allocationSize = 50)
     @Column(name="id")
     private Integer id;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
 

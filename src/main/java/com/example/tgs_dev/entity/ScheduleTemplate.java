@@ -1,13 +1,12 @@
 package com.example.tgs_dev.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.io.Serializable;
 
 @Getter
 @Setter
@@ -21,7 +20,7 @@ public class ScheduleTemplate extends BaseAudit implements Activatable {
     @Column(name="id")
     private Integer id;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
 
@@ -42,8 +41,17 @@ public class ScheduleTemplate extends BaseAudit implements Activatable {
     @Column(name="active")
     private Boolean active = true;
 
-    @Column(name="start_time")
-    private LocalTime startTime;
+    /**
+     * Position of this template in the vehicle departure order for its route.
+     * Vehicles are dispatched in ascending {@code sequenceOrder}.
+     *
+     * <p>In round-robin slot assignment, the vehicle at position {@code p} (1-based)
+     * receives departure slots {@code p}, {@code p + N}, {@code p + 2N}, ... where
+     * N is the total number of vehicles active for the route on that day.
+     */
+    @Min(1)
+    @Column(name = "sequence_order", nullable = false)
+    private Integer sequenceOrder;
 
     // ── SCD Type-2 versioning fields (populated by V01 migration) ────────────
 
@@ -60,10 +68,10 @@ public class ScheduleTemplate extends BaseAudit implements Activatable {
     @Column(name = "is_current")
     private Boolean isCurrent = true;
 
-    public ScheduleTemplate(Route route, String templateNumber, String name, LocalTime startTime) {
-        this.route = route;
+    public ScheduleTemplate(Route route, String templateNumber, String name, Integer sequenceOrder) {
+        this.route          = route;
         this.templateNumber = templateNumber;
-        this.name = name;
-        this.startTime = startTime;
+        this.name           = name;
+        this.sequenceOrder  = sequenceOrder;
     }
 }

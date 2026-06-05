@@ -4,6 +4,7 @@ import com.example.tgs_dev.entity.OperationalPeriodTimeRange;
 import com.example.tgs_dev.entity.RouteOperationalPeriod;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 /**
@@ -12,18 +13,25 @@ import java.util.List;
  * <p>{@code effectiveTo} is {@code null} for open-ended periods; clients should
  * render this as "sin fecha de fin" or equivalent.
  *
+ * <p>{@code firstDeparture} and {@code lastDeparture} define the daily service
+ * window.  Together with {@code defaultHeadwayMinutes} (and the per-range headway
+ * values inside {@code timeRanges}), they fully specify the headway-based
+ * departure-slot sequence.
+ *
  * <p>{@code timeRanges} is always present (empty list when
  * {@code useTimeRanges = false}).
  */
 public record RouteOperationalPeriodDTO(
-        Integer              id,
-        String               label,
-        int                  baseDuration,
-        int                  cycleCount,
-        LocalDate            effectiveFrom,
-        LocalDate            effectiveTo,
-        boolean              active,
-        boolean              useTimeRanges,
+        Integer                 id,
+        String                  label,
+        int                     baseDuration,
+        Integer                 defaultHeadwayMinutes,
+        LocalTime               firstDeparture,
+        LocalTime               lastDeparture,
+        LocalDate               effectiveFrom,
+        LocalDate               effectiveTo,
+        boolean                 active,
+        boolean                 useTimeRanges,
         List<RouteTimeRangeDTO> timeRanges
 ) {
     public static RouteOperationalPeriodDTO from(RouteOperationalPeriod period) {
@@ -35,7 +43,9 @@ public record RouteOperationalPeriodDTO(
                 period.getId(),
                 period.getLabel(),
                 period.getBaseDuration(),
-                period.getCycleCount(),
+                period.getDefaultHeadwayMinutes(),
+                period.getFirstDeparture(),
+                period.getLastDeparture(),
                 period.getEffectiveFrom(),
                 period.getEffectiveTo(),
                 Boolean.TRUE.equals(period.getActive()),
@@ -50,6 +60,7 @@ public record RouteOperationalPeriodDTO(
                 r.getRangeStart(),
                 r.getRangeEnd(),
                 r.getDurationMinutes(),
+                r.getHeadwayMinutes(),
                 r.getSortOrder(),
                 r.isCrossesMidnight()
         );

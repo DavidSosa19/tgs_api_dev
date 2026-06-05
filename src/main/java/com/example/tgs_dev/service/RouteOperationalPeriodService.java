@@ -157,7 +157,9 @@ public class RouteOperationalPeriodService {
                 company,
                 request.label(),
                 request.baseDuration(),
-                request.cycleCount(),
+                request.defaultHeadwayMinutes(),
+                request.firstDeparture(),
+                request.lastDeparture(),
                 request.effectiveFrom(),
                 request.effectiveTo()
         );
@@ -194,7 +196,9 @@ public class RouteOperationalPeriodService {
 
         period.setLabel(request.label());
         period.setBaseDuration(request.baseDuration());
-        period.setCycleCount(request.cycleCount());
+        period.setDefaultHeadwayMinutes(request.defaultHeadwayMinutes());
+        period.setFirstDeparture(request.firstDeparture());
+        period.setLastDeparture(request.lastDeparture());
         period.setEffectiveFrom(request.effectiveFrom());
         period.setEffectiveTo(request.effectiveTo());
 
@@ -253,7 +257,8 @@ public class RouteOperationalPeriodService {
         for (int i = 0; i < ranges.size(); i++) {
             RouteTimeRangeRequest r = ranges.get(i);
             OperationalPeriodTimeRange entity = new OperationalPeriodTimeRange(
-                    r.rangeStart(), r.rangeEnd(), r.durationMinutes(), i + 1, r.crossesMidnight());
+                    r.rangeStart(), r.rangeEnd(), r.durationMinutes(), r.headwayMinutes(),
+                    i + 1, r.crossesMidnight());
             entity.setPeriod(period);
             entity.setCompany(company);
             period.getTimeRanges().add(entity);

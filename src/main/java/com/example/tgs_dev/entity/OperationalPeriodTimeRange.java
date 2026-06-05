@@ -51,8 +51,20 @@ public class OperationalPeriodTimeRange extends BaseAudit {
     @Column(name = "range_end", nullable = false)
     private LocalTime rangeEnd;
 
+    /** Trip duration (minutes) when a vehicle departs within this time window. */
     @Column(name = "duration_minutes", nullable = false)
     private int durationMinutes;
+
+    /**
+     * Target departure-slot spacing (minutes) when the current slot falls within
+     * this time window.
+     *
+     * <p>This is independent of {@code durationMinutes}: duration describes how long
+     * the trip takes; headway describes how soon the next vehicle should depart.
+     * Used by the {@link com.example.tgs_dev.service.schedule.HeadwayResolver} chain.
+     */
+    @Column(name = "headway_minutes", nullable = false)
+    private int headwayMinutes;
 
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
@@ -62,11 +74,12 @@ public class OperationalPeriodTimeRange extends BaseAudit {
     private boolean crossesMidnight = false;
 
     public OperationalPeriodTimeRange(LocalTime rangeStart, LocalTime rangeEnd,
-                                       int durationMinutes, int sortOrder,
-                                       boolean crossesMidnight) {
+                                       int durationMinutes, int headwayMinutes,
+                                       int sortOrder, boolean crossesMidnight) {
         this.rangeStart      = rangeStart;
         this.rangeEnd        = rangeEnd;
         this.durationMinutes = durationMinutes;
+        this.headwayMinutes  = headwayMinutes;
         this.sortOrder       = sortOrder;
         this.crossesMidnight = crossesMidnight;
     }

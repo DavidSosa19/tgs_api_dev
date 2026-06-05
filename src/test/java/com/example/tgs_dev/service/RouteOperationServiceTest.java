@@ -32,7 +32,7 @@ import static org.mockito.Mockito.*;
  *
  * Delegates (findAll, findAllByDate) are omitted.
  * Focus: exception contract on findById, cascade invariant on soft-delete,
- * entity construction in initRoutOperation.
+ * entity construction in initRouteOperation.
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("RouteOperationService")
@@ -92,6 +92,22 @@ class RouteOperationServiceTest {
 
             assertThat(sut.findAllByDate(OP_DATE)).isEmpty();
         }
+
+        @Test @DisplayName("preserves the repository's ordering — the JPQL ORDER BY governs route-number sort")
+        void preservesRepositoryOrdering() {
+            // Repository returns routes pre-sorted by (LENGTH(routeNumber), routeNumber).
+            // Service must not reorder — it is the canonical sort produced by SQL.
+            RouteOperation r1  = operation(101, route(10, "1"),  OP_DATE);
+            RouteOperation r2  = operation(102, route(20, "2"),  OP_DATE);
+            RouteOperation r10 = operation(110, route(30, "10"), OP_DATE);
+            when(repo.findAllByDateAndCompany(OP_DATE, COMPANY_ID))
+                    .thenReturn(List.of(r1, r2, r10));
+
+            List<RouteOperationDTO> result = sut.findAllByDate(OP_DATE);
+
+            assertThat(result).extracting(dto -> dto.route().routeNumber())
+                    .containsExactly("1", "2", "10");
+        }
     }
 
     // ── findByRouteAndDate ────────────────────────────────────────────────────
@@ -138,7 +154,7 @@ class RouteOperationServiceTest {
 
         @Test @DisplayName("soft-deletes all assignments before deactivating the operation")
         void cascadeOrderIsAssignmentsFirst() {
-            VehicleAssignment va = assignment(1, op, vehicle(10, "V"), template(100, route, null), 1);
+            VehicleAssignment va = assignment(1, op, vehicle(10, "V"), template(100, route, 1), 1);
             when(vehicleAssignmentService.findByRouteOperation(op)).thenReturn(List.of(va));
 
             sut.softDelete(op);
@@ -175,8 +191,8 @@ class RouteOperationServiceTest {
         @Test @DisplayName("cascades assignment deletion for each operation")
         void cascadesAssignmentDeletionForAll() {
             RouteOperation op2 = operation(2, route, OP_DATE);
-            VehicleAssignment va1 = assignment(1, op,  vehicle(10, "V1"), template(100, route, null), 1);
-            VehicleAssignment va2 = assignment(2, op2, vehicle(20, "V2"), template(100, route, null), 1);
+            VehicleAssignment va1 = assignment(1, op,  vehicle(10, "V1"), template(100, route, 1), 1);
+            VehicleAssignment va2 = assignment(2, op2, vehicle(20, "V2"), template(100, route, 1), 1);
 
             when(repo.findAll(any(Specification.class))).thenReturn(List.of(op, op2));
             when(vehicleAssignmentService.findByRouteOperation(op)).thenReturn(List.of(va1));
@@ -190,8 +206,8 @@ class RouteOperationServiceTest {
         }
     }
 
-    // ── initRoutOperation ─────────────────────────────────────────────────────
-    @Nested @DisplayName("initRoutOperation")
+    // ── initRouteOperation ─────────────────────────────────────────────────────
+    @Nested @DisplayName("initRouteOperation")
     class InitRoutOperation {
 
         @Test @DisplayName("creates a RouteOperation with correct route, date and company")
@@ -203,7 +219,7 @@ class RouteOperationServiceTest {
                 return created;
             });
 
-            RouteOperation result = sut.initRoutOperation(route, targetDate);
+            RouteOperation result = sut.initRouteOperation(route, targetDate);
 
             assertThat(result.getRoute()).isEqualTo(route);
             assertThat(result.getServiceDate()).isEqualTo(targetDate);

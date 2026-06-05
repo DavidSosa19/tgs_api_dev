@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -40,7 +39,7 @@ class RotationMapperTest {
 
         route    = new Route("");
         route.setId(1);
-        template = new ScheduleTemplate(route, "T-1", "Morning", LocalTime.of(6, 0));
+        template = new ScheduleTemplate(route, "T-1", "Morning", 1);
         template.setId(1);
         vehicle  = new Vehicle("V-001", null);
         vehicle.setLicensePlate("ABC-123");

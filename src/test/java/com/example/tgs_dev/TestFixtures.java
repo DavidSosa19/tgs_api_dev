@@ -45,22 +45,39 @@ public final class TestFixtures {
         };
     }
 
+    /**
+     * Creates a {@link Route} with a {@link RouteGroup} attached.
+     * The group's id mirrors the route's surrogate id (cast to Long) so tests
+     * that only care about identity don't need to think about both ids.
+     */
     public static Route route(int id, String number) {
         Route r = new Route(number);
         r.setId(id);
+        RouteGroup group = new RouteGroup(null, number);
+        group.setId((long) id);
+        r.setGroup(group);
         return r;
     }
 
     /**
-     * Creates a {@link TimeRangeLookup} value object for use in pure resolver tests.
+     * Creates a {@link TimeRangeLookup} with duration data only (headwayMinutes = 0).
+     * Suitable for duration-resolver tests where headway is not under test.
      */
     public static TimeRangeLookup lookup(LocalTime start, LocalTime end, int durationMinutes) {
-        return new TimeRangeLookup(start, end, durationMinutes, false);
+        return TimeRangeLookup.durationOnly(start, end, durationMinutes, false);
     }
 
-    /** Overnight lookup variant. */
+    /** Overnight lookup variant (duration only). */
     public static TimeRangeLookup overnightLookup(LocalTime start, LocalTime end, int durationMinutes) {
-        return new TimeRangeLookup(start, end, durationMinutes, true);
+        return TimeRangeLookup.durationOnly(start, end, durationMinutes, true);
+    }
+
+    /**
+     * Creates a {@link TimeRangeLookup} with both duration and headway data.
+     */
+    public static TimeRangeLookup lookup(LocalTime start, LocalTime end,
+                                          int durationMinutes, int headwayMinutes) {
+        return new TimeRangeLookup(start, end, durationMinutes, headwayMinutes, false);
     }
 
     public static Vehicle vehicle(int id, String number) {
@@ -69,8 +86,8 @@ public final class TestFixtures {
         return v;
     }
 
-    public static ScheduleTemplate template(int id, Route route, LocalTime startTime) {
-        ScheduleTemplate t = new ScheduleTemplate(route, "T" + id, "Template " + id, startTime);
+    public static ScheduleTemplate template(int id, Route route, int sequenceOrder) {
+        ScheduleTemplate t = new ScheduleTemplate(route, "T" + id, "Template " + id, sequenceOrder);
         t.setId(id);
         return t;
     }
@@ -89,8 +106,18 @@ public final class TestFixtures {
         return va;
     }
 
+    /**
+     * Convenience: {@code tripNumber} defaults to {@code order} (matches the simple
+     * case where the assignment has a single vehicle).  Use the 5-arg overload when
+     * the test needs distinct global and per-vehicle indices.
+     */
     public static Schedule schedule(int id, VehicleAssignment va, int order, LocalTime time) {
-        Schedule s = new Schedule(va, order, time);
+        return schedule(id, va, order, order, time);
+    }
+
+    public static Schedule schedule(int id, VehicleAssignment va,
+                                     int departureOrder, int tripNumber, LocalTime time) {
+        Schedule s = new Schedule(va, departureOrder, tripNumber, time);
         s.setId(id);
         return s;
     }
@@ -103,16 +130,39 @@ public final class TestFixtures {
     }
 
     /**
-     * Creates a {@link RouteOperationalPeriod} with the given parameters, linked
-     * to a stub company. {@code effectiveTo} may be {@code null} for open-ended periods.
+     * Creates a {@link RouteOperationalPeriod} for tests.
+     * {@code effectiveTo} may be {@code null} for open-ended periods.
+     * Departure window defaults to 06:00 – 22:00.
+     *
+     * @param baseDuration          trip duration fallback (minutes)
+     * @param defaultHeadwayMinutes departure slot spacing fallback (minutes)
      */
     public static RouteOperationalPeriod operationalPeriod(int id, Route route,
-                                                            int baseDuration, int cycleCount,
+                                                            int baseDuration,
+                                                            int defaultHeadwayMinutes,
                                                             LocalDate effectiveFrom,
                                                             LocalDate effectiveTo) {
+        return operationalPeriod(id, route, baseDuration, defaultHeadwayMinutes,
+                effectiveFrom, effectiveTo,
+                LocalTime.of(6, 0), LocalTime.of(22, 0));
+    }
+
+    /**
+     * Full-control overload — allows specifying custom departure times.
+     */
+    public static RouteOperationalPeriod operationalPeriod(int id, Route route,
+                                                            int baseDuration,
+                                                            int defaultHeadwayMinutes,
+                                                            LocalDate effectiveFrom,
+                                                            LocalDate effectiveTo,
+                                                            LocalTime firstDeparture,
+                                                            LocalTime lastDeparture) {
         Company c = company(1, "Corp");
         RouteOperationalPeriod p = new RouteOperationalPeriod(
-                route, c, "Period " + id, baseDuration, cycleCount, effectiveFrom, effectiveTo);
+                route, c, "Period " + id,
+                baseDuration, defaultHeadwayMinutes,
+                firstDeparture, lastDeparture,
+                effectiveFrom, effectiveTo);
         p.setId(id);
         return p;
     }
@@ -133,10 +183,23 @@ public final class TestFixtures {
     public static ScheduleProjection scheduleProjection(int assignmentId,
                                                         int departureOrder,
                                                         LocalTime time) {
+        return scheduleProjection(assignmentId, departureOrder, departureOrder, time);
+    }
+
+    public static ScheduleProjection scheduleProjection(int assignmentId,
+                                                        int departureOrder,
+                                                        int tripNumber,
+                                                        LocalTime time) {
         return new ScheduleProjection() {
-            @Override public Integer   getAssignmentId()   { return assignmentId; }
-            @Override public Integer   getDepartureOrder() { return departureOrder; }
-            @Override public LocalTime getDepartureTime()  { return time; }
+            @Override public Integer   getScheduleId()            { return assignmentId * 1000 + departureOrder; }
+            @Override public Integer   getAssignmentId()          { return assignmentId; }
+            @Override public Integer   getTripNumber()            { return tripNumber; }
+            @Override public Integer   getDepartureOrder()        { return departureOrder; }
+            @Override public LocalTime getDepartureTime()         { return time; }
+            @Override public Boolean   getActive()                { return Boolean.TRUE; }
+            @Override public String    getOrigin()                { return "ORIGINAL"; }
+            @Override public LocalTime getOriginalDepartureTime() { return null; }
+            @Override public String    getSupersededReason()      { return null; }
         };
     }
 

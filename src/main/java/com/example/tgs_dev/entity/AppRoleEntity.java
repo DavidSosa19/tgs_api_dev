@@ -39,7 +39,10 @@ public class AppRoleEntity extends BaseAudit implements Serializable {
     @Column(nullable = false)
     private Boolean active = true;
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    // LAZY: the authentication graph fetches permissions through
+    // UserRepository.findByUserName's @EntityGraph. Other role queries
+    // (admin listing, role management) don't need permissions hydrated.
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             schema = "core",
             name = "role_permission",

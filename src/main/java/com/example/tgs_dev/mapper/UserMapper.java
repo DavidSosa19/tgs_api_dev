@@ -17,12 +17,10 @@ public class UserMapper {
     public UserDTO toDTO(User user) {
         if (user == null) return null;
 
-        List<String> roleNames = user.getRoles() == null
-                ? List.of()
-                : user.getRoles().stream()
-                        .map(AppRoleEntity::getName)
-                        .sorted()
-                        .toList();
+        List<String> roleNames = user.getRoles().stream()
+                .map(AppRoleEntity::getName)
+                .sorted()
+                .toList();
 
         return new UserDTO(
                 user.getId(),

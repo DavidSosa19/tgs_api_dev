@@ -153,8 +153,8 @@ class RouteCalendarOverrideServiceTest {
         @Test @DisplayName("populates ranges when useTimeRanges = true")
         void addsRangesWhenEnabled() {
             List<RouteTimeRangeRequest> ranges = List.of(
-                    new RouteTimeRangeRequest(LocalTime.of(6, 0), LocalTime.of(7, 0), 30, false),
-                    new RouteTimeRangeRequest(LocalTime.of(7, 0), LocalTime.of(8, 0), 30, false)
+                    new RouteTimeRangeRequest(LocalTime.of(6, 0), LocalTime.of(7, 0), 30, 8, false),
+                    new RouteTimeRangeRequest(LocalTime.of(7, 0), LocalTime.of(8, 0), 30, 8, false)
             );
             RouteCalendarOverrideRequest req = new RouteCalendarOverrideRequest(
                     DATE, true, 30, ranges);
@@ -186,9 +186,9 @@ class RouteCalendarOverrideServiceTest {
         @Test @DisplayName("overnight ranges are sorted to the end (crossesMidnight last)")
         void rangesAreSortedOvernightLast() {
             List<RouteTimeRangeRequest> ranges = List.of(
-                    new RouteTimeRangeRequest(LocalTime.of(22, 0), LocalTime.of(2, 0), 60, true),  // overnight first in input
-                    new RouteTimeRangeRequest(LocalTime.of(6, 0),  LocalTime.of(7, 0), 30, false),
-                    new RouteTimeRangeRequest(LocalTime.of(7, 0),  LocalTime.of(8, 0), 30, false)
+                    new RouteTimeRangeRequest(LocalTime.of(22, 0), LocalTime.of(2, 0), 60, 8, true),  // overnight first in input
+                    new RouteTimeRangeRequest(LocalTime.of(6, 0),  LocalTime.of(7, 0), 30, 8, false),
+                    new RouteTimeRangeRequest(LocalTime.of(7, 0),  LocalTime.of(8, 0), 30, 8, false)
             );
             RouteCalendarOverrideRequest req = new RouteCalendarOverrideRequest(
                     DATE, true, 30, ranges);
@@ -205,9 +205,9 @@ class RouteCalendarOverrideServiceTest {
         @Test @DisplayName("sortOrder is assigned as 1-based sequential position")
         void sortOrderIsOneBased() {
             List<RouteTimeRangeRequest> ranges = List.of(
-                    new RouteTimeRangeRequest(LocalTime.of(6, 0), LocalTime.of(7, 0), 30, false),
-                    new RouteTimeRangeRequest(LocalTime.of(7, 0), LocalTime.of(8, 0), 30, false),
-                    new RouteTimeRangeRequest(LocalTime.of(8, 0), LocalTime.of(9, 0), 30, false)
+                    new RouteTimeRangeRequest(LocalTime.of(6, 0), LocalTime.of(7, 0), 30, 8, false),
+                    new RouteTimeRangeRequest(LocalTime.of(7, 0), LocalTime.of(8, 0), 30, 8, false),
+                    new RouteTimeRangeRequest(LocalTime.of(8, 0), LocalTime.of(9, 0), 30, 8, false)
             );
             RouteCalendarOverrideRequest req = new RouteCalendarOverrideRequest(
                     DATE, true, 30, ranges);

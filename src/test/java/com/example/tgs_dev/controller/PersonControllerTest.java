@@ -38,7 +38,7 @@ class PersonControllerTest {
     @Mock ConstraintMessageResolver constraintResolver;
 
     MockMvc mockMvc;
-    static final String BASE = "/api/person";
+    static final String BASE = "/api/persons";
 
     @BeforeEach
     void setUp() {

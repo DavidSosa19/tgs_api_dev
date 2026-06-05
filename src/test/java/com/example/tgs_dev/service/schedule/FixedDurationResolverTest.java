@@ -25,8 +25,8 @@ class FixedDurationResolverTest {
     @Test @DisplayName("returns effectiveBaseDuration from context")
     void returnsBaseDuration() {
         Route route = route(1, "R-1");
-        DurationResolverContext ctx = new DurationResolverContext(
-                route, LocalTime.of(8, 0), LocalDate.of(2024, 6, 15), 45, List.of());
+        ScheduleResolverContext ctx = new ScheduleResolverContext(
+                route, LocalTime.of(8, 0), LocalDate.of(2024, 6, 15), 45, 8, List.of());
 
         assertThat(sut.resolve(ctx)).isEqualTo(45);
     }
@@ -34,8 +34,8 @@ class FixedDurationResolverTest {
     @Test @DisplayName("returns period-overridden effectiveBaseDuration when one is supplied")
     void returnsPeriodBaseDuration() {
         Route route = route(1, "R-1");
-        DurationResolverContext ctx = new DurationResolverContext(
-                route, LocalTime.of(8, 0), LocalDate.of(2024, 12, 15), 60, List.of());
+        ScheduleResolverContext ctx = new ScheduleResolverContext(
+                route, LocalTime.of(8, 0), LocalDate.of(2024, 12, 15), 60, 8, List.of());
 
         assertThat(sut.resolve(ctx)).isEqualTo(60);
     }
@@ -43,8 +43,8 @@ class FixedDurationResolverTest {
     @Test @DisplayName("returns the exact effectiveBaseDuration value — no rounding or offset")
     void returnsExactValue() {
         Route route = route(2, "R-2");
-        DurationResolverContext ctx = new DurationResolverContext(
-                route, LocalTime.MIDNIGHT, LocalDate.now(), 120, List.of());
+        ScheduleResolverContext ctx = new ScheduleResolverContext(
+                route, LocalTime.MIDNIGHT, LocalDate.now(), 120, 8, List.of());
 
         assertThat(sut.resolve(ctx)).isEqualTo(120);
     }

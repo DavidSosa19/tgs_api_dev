@@ -7,6 +7,7 @@ import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -63,13 +64,46 @@ public class RouteOperationalPeriod extends BaseAudit implements Activatable {
     @Column(name = "label", nullable = false, length = 100)
     private String label;
 
-    /** Base duration (minutes) used for schedule generation during this period. */
+    /**
+     * Trip duration (minutes) used as default when no time-range matches.
+     * Still relevant for fleet-size validation:
+     * {@code vehiclesNeeded = ceil(baseDuration / defaultHeadwayMinutes)}.
+     */
     @Column(name = "base_duration", nullable = false)
     private int baseDuration;
 
-    /** Number of departure cycles used for schedule generation during this period. */
-    @Column(name = "cycle_count", nullable = false)
-    private int cycleCount;
+    /**
+     * Fallback headway (minutes) between consecutive departure slots when
+     * no time-range with a positive headway covers the current slot time.
+     *
+     * <p>Used by {@link com.example.tgs_dev.service.schedule.FixedHeadwayResolver}
+     * as the terminal value in the {@link com.example.tgs_dev.service.schedule.HeadwayResolver}
+     * chain.
+     */
+    @Column(name = "default_headway_minutes")
+    private Integer defaultHeadwayMinutes;
+
+    /**
+     * Time of the first departure slot for this route on any service day within
+     * the period.  Together with {@code lastDeparture} and the headway configuration,
+     * this fully determines the day's departure sequence.
+     *
+     * <p>{@code null} for legacy periods that have not yet been migrated to
+     * headway-based scheduling.  {@link com.example.tgs_dev.service.schedule.DepartureSlotGenerator}
+     * will throw a {@link com.example.tgs_dev.controller.exception.BusinessException}
+     * if this is null when schedule generation is attempted.
+     */
+    @Column(name = "first_departure")
+    private LocalTime firstDeparture;
+
+    /**
+     * Time of the last permitted departure slot.  No slot at or after this time
+     * will be generated.
+     *
+     * <p>{@code null} carries the same caveat as {@code firstDeparture}.
+     */
+    @Column(name = "last_departure")
+    private LocalTime lastDeparture;
 
     /** First date (inclusive) this period is in effect. */
     @Column(name = "effective_from", nullable = false)
@@ -105,16 +139,20 @@ public class RouteOperationalPeriod extends BaseAudit implements Activatable {
     @OrderBy("sortOrder ASC")
     private List<OperationalPeriodTimeRange> timeRanges = new ArrayList<>();
 
+    @SuppressWarnings("java:S107") // JPA entity — all 9 fields are required at construction; no artificial grouping needed
     public RouteOperationalPeriod(Route route, Company company, String label,
-                                  int baseDuration, int cycleCount,
+                                  int baseDuration, int defaultHeadwayMinutes,
+                                  LocalTime firstDeparture, LocalTime lastDeparture,
                                   LocalDate effectiveFrom, LocalDate effectiveTo) {
-        this.route         = route;
-        this.company       = company;
-        this.label         = label;
-        this.baseDuration  = baseDuration;
-        this.cycleCount    = cycleCount;
-        this.effectiveFrom = effectiveFrom;
-        this.effectiveTo   = effectiveTo;
+        this.route                  = route;
+        this.company                = company;
+        this.label                  = label;
+        this.baseDuration           = baseDuration;
+        this.defaultHeadwayMinutes  = defaultHeadwayMinutes;
+        this.firstDeparture         = firstDeparture;
+        this.lastDeparture          = lastDeparture;
+        this.effectiveFrom          = effectiveFrom;
+        this.effectiveTo            = effectiveTo;
     }
 
     /** Convenience getter — avoids null-check on the column default. */

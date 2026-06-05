@@ -10,10 +10,6 @@ import java.util.Optional;
 
 public interface RouteRepository extends BaseRepository<Route, Integer> {
 
-    /** @deprecated No tenant scope — use {@link #findAllActiveByCompanySorted} instead. */
-    @Deprecated
-    List<Route> findAllByOrderByRouteNumberAsc();
-
     /**
      * Returns all <em>current active</em> routes for the company sorted numerically.
      * Used by the operational scheduling path and the route selector dropdowns.

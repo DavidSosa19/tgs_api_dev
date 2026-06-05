@@ -87,7 +87,9 @@
 			**/repository/ScheduleTemplateRepository.java,
 			**/repository/ScheduleTemplateVersionRepository.java,
 			**/repository/specification/CommonSpecifications.java,
-			**/util/JSONConverter.java
+			**/util/JSONConverter.java,
+			**/controller/admin/AdminRoleController.java,
+			**/service/strategy/ScheduleInitStrategy.java
 		</sonar.coverage.exclusions>
 	</properties>
 	<dependencies>

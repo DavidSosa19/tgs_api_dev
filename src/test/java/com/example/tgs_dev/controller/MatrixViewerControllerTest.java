@@ -61,12 +61,17 @@ class MatrixViewerControllerTest {
 
         private VehicleScheduleDTO vehicleRow(int vaId, int rowOrder) {
             var vehicle  = new VehicleInfoDTO(vaId, "V-00" + vaId, "ABC-00" + vaId);
-            var template = new TemplateInfoDTO(1, "T1", "Template 1", LocalTime.of(6, 0));
+            var template = new TemplateInfoDTO(1, "T1", "Template 1", 1);
             var entries  = List.of(
-                    new ScheduleEntryDTO(1, LocalTime.of(6,  0)),
-                    new ScheduleEntryDTO(2, LocalTime.of(6, 30))
+                    new ScheduleEntryDTO(100 + vaId, 1, 1, LocalTime.of(6,  0),
+                                         null, null, true,
+                                         com.example.tgs_dev.entity.enums.ScheduleOrigin.ORIGINAL, null),
+                    new ScheduleEntryDTO(200 + vaId, 2, 2, LocalTime.of(6, 30),
+                                         null, null, true,
+                                         com.example.tgs_dev.entity.enums.ScheduleOrigin.ORIGINAL, null)
             );
-            return new VehicleScheduleDTO(vaId, rowOrder, vehicle, template, entries);
+            return new VehicleScheduleDTO(vaId, rowOrder, true, null, null,
+                                          vehicle, template, entries);
         }
 
         @Test @DisplayName("200 with populated schedule")

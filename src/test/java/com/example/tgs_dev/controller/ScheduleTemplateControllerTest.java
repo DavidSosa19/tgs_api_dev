@@ -25,7 +25,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
-import java.time.LocalTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -43,7 +42,7 @@ class ScheduleTemplateControllerTest {
     @Mock ConstraintMessageResolver constraintResolver;
 
     MockMvc mockMvc;
-    static final String BASE = "/api/scheduleTemplate";
+    static final String BASE = "/api/schedule-templates";
 
     @BeforeEach
     void setUp() {
@@ -60,14 +59,14 @@ class ScheduleTemplateControllerTest {
     private ScheduleTemplate template(int id) {
         Route r = new Route("R-" + id);
         r.setId(id);
-        ScheduleTemplate t = new ScheduleTemplate(r, "T-" + id, "Template " + id, LocalTime.of(6, 0));
+        ScheduleTemplate t = new ScheduleTemplate(r, "T-" + id, "Template " + id, 1);
         t.setId(id);
         return t;
     }
 
     private ScheduleTemplateDTO dto(int id, long groupId) {
         RouteDTO routeDTO = new RouteDTO(id, (long) id, "R-" + id, true);
-        return new ScheduleTemplateDTO(id, groupId, "T-" + id, "Template " + id, true, LocalTime.of(6, 0), routeDTO, null);
+        return new ScheduleTemplateDTO(id, groupId, "T-" + id, "Template " + id, true, 1, routeDTO, null);
     }
 
     @Nested @DisplayName("GET /")
@@ -105,7 +104,7 @@ class ScheduleTemplateControllerTest {
             when(scheduleTemplateMapper.toDTO(any(ScheduleTemplate.class))).thenReturn(dto(1, 50L));
             mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                {"routeId":100,"templateNumber":"T-1","name":"Template 1","startTime":"06:00:00"}"""))
+                                {"routeId":100,"templateNumber":"T-1","name":"Template 1","sequenceOrder":1}"""))
                     .andExpect(status().isCreated());
         }
 
@@ -120,7 +119,7 @@ class ScheduleTemplateControllerTest {
             when(scheduleTemplateMapper.toDTO(any(ScheduleTemplate.class))).thenReturn(dto(1, 50L));
             mockMvc.perform(post(BASE).contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                {"routeId":100,"secondaryRouteId":200,"templateNumber":"T-1","name":"Template 1","startTime":"06:00:00"}"""))
+                                {"routeId":100,"secondaryRouteId":200,"templateNumber":"T-1","name":"Template 1","sequenceOrder":1}"""))
                     .andExpect(status().isCreated());
             verify(routeService).findByGroupId(200L);
         }
@@ -144,7 +143,7 @@ class ScheduleTemplateControllerTest {
             when(scheduleTemplateMapper.toDTO(any(ScheduleTemplate.class))).thenReturn(dto(1, 50L));
             mockMvc.perform(put(BASE + "/50").contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                {"routeId":100,"templateNumber":"T-1","name":"Template 1","startTime":"06:00:00"}"""))
+                                {"routeId":100,"templateNumber":"T-1","name":"Template 1","sequenceOrder":1}"""))
                     .andExpect(status().isOk());
         }
     }

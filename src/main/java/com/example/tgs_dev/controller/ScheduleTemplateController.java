@@ -28,7 +28,7 @@ import java.util.List;
  * current active {@link Route} version before delegating to the service.
  */
 @RestController
-@RequestMapping("/api/scheduleTemplate")
+@RequestMapping("/api/schedule-templates")
 @RequiredArgsConstructor
 public class ScheduleTemplateController {
 

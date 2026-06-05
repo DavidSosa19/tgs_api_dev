@@ -36,11 +36,11 @@ package com.example.tgs_dev.service.schedule;
 public interface DurationResolver {
 
     /**
-     * Returns the duration in minutes to advance the clock after producing
-     * one schedule entry for the given {@code context}.
+     * Returns the trip duration in minutes for the given departure slot.
      *
-     * @param context  the resolver context carrying route, departure time, and date.
+     * @param context  the unified resolver context carrying route, departure time, date,
+     *                 and pre-resolved period configuration.
      * @return duration in minutes; strictly positive.
      */
-    int resolve(DurationResolverContext context);
+    int resolve(ScheduleResolverContext context);
 }

@@ -138,7 +138,7 @@ class TimeRangeDurationResolverTest {
 
     // ── Helper ────────────────────────────────────────────────────────────────
 
-    private DurationResolverContext ctx(LocalTime time, List<TimeRangeLookup> ranges) {
-        return new DurationResolverContext(ROUTE, time, DATE, 30, ranges);
+    private ScheduleResolverContext ctx(LocalTime time, List<TimeRangeLookup> ranges) {
+        return new ScheduleResolverContext(ROUTE, time, DATE, 30, 8, ranges);
     }
 }

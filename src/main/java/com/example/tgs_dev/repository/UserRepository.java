@@ -2,6 +2,7 @@ package com.example.tgs_dev.repository;
 
 import com.example.tgs_dev.entity.User;
 import com.example.tgs_dev.repository.base.BaseRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,6 +12,15 @@ import java.util.Optional;
 
 public interface UserRepository extends BaseRepository<User, Integer> {
 
+    /**
+     * Eagerly fetches roles, role permissions, company and person so the
+     * returned {@link User} can be safely passed to mappers and the JWT filter
+     * outside of any session/transaction. {@link User#roles} and
+     * {@link User#company} are LAZY by default; without this graph,
+     * {@code getAuthorities()} / {@code getCompany()} would throw
+     * {@code LazyInitializationException}.
+     */
+    @EntityGraph(attributePaths = {"roles", "roles.permissions", "company", "person"})
     Optional<User> findByUserName(String userName);
 
     // ── Admin cross-tenant queries (bypass @SQLRestriction) ──────────────────

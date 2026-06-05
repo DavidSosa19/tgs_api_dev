@@ -149,7 +149,8 @@ class PersonServiceTest {
         void notFound() {
             when(personRepository.findCurrentByGroupId(GROUP_ID, COMPANY_ID))
                     .thenReturn(Optional.empty());
-            assertThatThrownBy(() -> sut.update(GROUP_ID, request()))
+            PersonRequest req = request();
+            assertThatThrownBy(() -> sut.update(GROUP_ID, req))
                     .isInstanceOf(ResourceNotFoundException.class);
             verify(personRepository, never()).save(any());
         }

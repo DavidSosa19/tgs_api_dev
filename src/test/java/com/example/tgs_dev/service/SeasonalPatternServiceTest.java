@@ -161,8 +161,8 @@ class SeasonalPatternServiceTest {
         @Test @DisplayName("populates ranges when useTimeRanges = true")
         void addsRangesWhenEnabled() {
             List<RouteTimeRangeRequest> ranges = List.of(
-                    new RouteTimeRangeRequest(LocalTime.of(6, 0), LocalTime.of(7, 0), 30, false),
-                    new RouteTimeRangeRequest(LocalTime.of(7, 0), LocalTime.of(8, 0), 30, false)
+                    new RouteTimeRangeRequest(LocalTime.of(6, 0), LocalTime.of(7, 0), 30, 8, false),
+                    new RouteTimeRangeRequest(LocalTime.of(7, 0), LocalTime.of(8, 0), 30, 8, false)
             );
             SeasonalPatternRequest req = new SeasonalPatternRequest(
                     "Summer", FROM, TO, true, 30, ranges);
@@ -176,9 +176,9 @@ class SeasonalPatternServiceTest {
         @Test @DisplayName("overnight ranges are sorted to the end (crossesMidnight last)")
         void overnightRangeSortedLast() {
             List<RouteTimeRangeRequest> ranges = List.of(
-                    new RouteTimeRangeRequest(LocalTime.of(22, 0), LocalTime.of(2, 0), 60, true),  // overnight first in input
-                    new RouteTimeRangeRequest(LocalTime.of(6, 0),  LocalTime.of(7, 0), 30, false),
-                    new RouteTimeRangeRequest(LocalTime.of(7, 0),  LocalTime.of(8, 0), 30, false)
+                    new RouteTimeRangeRequest(LocalTime.of(22, 0), LocalTime.of(2, 0), 60, 8, true),  // overnight first in input
+                    new RouteTimeRangeRequest(LocalTime.of(6, 0),  LocalTime.of(7, 0), 30, 8, false),
+                    new RouteTimeRangeRequest(LocalTime.of(7, 0),  LocalTime.of(8, 0), 30, 8, false)
             );
             SeasonalPatternRequest req = new SeasonalPatternRequest(
                     "Summer", FROM, TO, true, 30, ranges);
@@ -192,9 +192,9 @@ class SeasonalPatternServiceTest {
         @Test @DisplayName("sortOrder is assigned as 1-based sequential position")
         void sortOrderIsOneBased() {
             List<RouteTimeRangeRequest> ranges = List.of(
-                    new RouteTimeRangeRequest(LocalTime.of(6, 0), LocalTime.of(7, 0), 30, false),
-                    new RouteTimeRangeRequest(LocalTime.of(7, 0), LocalTime.of(8, 0), 30, false),
-                    new RouteTimeRangeRequest(LocalTime.of(8, 0), LocalTime.of(9, 0), 30, false)
+                    new RouteTimeRangeRequest(LocalTime.of(6, 0), LocalTime.of(7, 0), 30, 8, false),
+                    new RouteTimeRangeRequest(LocalTime.of(7, 0), LocalTime.of(8, 0), 30, 8, false),
+                    new RouteTimeRangeRequest(LocalTime.of(8, 0), LocalTime.of(9, 0), 30, 8, false)
             );
             SeasonalPatternRequest req = new SeasonalPatternRequest(
                     "Summer", FROM, TO, true, 30, ranges);
@@ -251,8 +251,8 @@ class SeasonalPatternServiceTest {
             when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
             List<RouteTimeRangeRequest> newRanges = List.of(
-                    new RouteTimeRangeRequest(LocalTime.of(6, 0), LocalTime.of(7, 0), 40, false),
-                    new RouteTimeRangeRequest(LocalTime.of(7, 0), LocalTime.of(8, 0), 40, false)
+                    new RouteTimeRangeRequest(LocalTime.of(6, 0), LocalTime.of(7, 0), 40, 8, false),
+                    new RouteTimeRangeRequest(LocalTime.of(7, 0), LocalTime.of(8, 0), 40, 8, false)
             );
             SeasonalPatternRequest req = new SeasonalPatternRequest(
                     "Summer", FROM, TO, true, 30, newRanges);

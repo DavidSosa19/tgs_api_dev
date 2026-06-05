@@ -20,11 +20,12 @@ import lombok.Setter;
 public class RotationEntry extends BaseAudit implements AssignmentSlot {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "rotation_entry_id_seq")
+    @SequenceGenerator(name = "rotation_entry_id_seq", sequenceName = "core.rotation_entry_id_seq", allocationSize = 50)
     @Column(name="id")
     private Integer id;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
 

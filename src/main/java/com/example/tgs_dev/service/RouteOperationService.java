@@ -78,6 +78,24 @@ public class RouteOperationService {
                                     .and(TenantSpecifications.belongsToCompany(tenantService.currentCompanyId())));
     }
 
+    /**
+     * Loads the operation with a row-level pessimistic write lock.  Used at
+     * the entry point of mutating flows (vehicle removal / recalculation) so
+     * concurrent operations on the same row serialise.  Must be called within
+     * an active transaction.
+     *
+     * @throws NoSuchElementException if the operation does not exist or is not visible to the tenant
+     */
+    public RouteOperation findByIdForUpdate(Integer id) {
+        RouteOperation op = routeOperationRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new NoSuchElementException("notFound.routeOperation|" + id));
+        // Defence-in-depth tenant check — lock was acquired before this, so it's authoritative
+        if (!op.getCompany().getId().equals(tenantService.currentCompanyId())) {
+            throw new NoSuchElementException("notFound.routeOperation|" + id);
+        }
+        return op;
+    }
+
     public Optional<RouteOperation> findByRouteAndDate(Route route, LocalDate date) {
         return routeOperationRepository.findOne(
                 CommonSpecifications.<RouteOperation>fieldEquals("route", route)
@@ -104,7 +122,7 @@ public class RouteOperationService {
     }
 
     @Transactional
-    public RouteOperation initRoutOperation(Route route, LocalDate date) {
+    public RouteOperation initRouteOperation(Route route, LocalDate date) {
         RouteOperation newRouteOperation = new RouteOperation(route, date);
         return save(newRouteOperation);
     }

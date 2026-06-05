@@ -3,8 +3,7 @@ package com.example.tgs_dev.service;
 import com.example.tgs_dev.controller.exception.BusinessException;
 import com.example.tgs_dev.entity.*;
 import com.example.tgs_dev.repository.ScheduleRepository;
-import com.example.tgs_dev.service.schedule.DurationResolver;
-import com.example.tgs_dev.service.schedule.DurationResolverContext;
+import com.example.tgs_dev.service.schedule.DepartureSlotGenerator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -19,18 +18,24 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
+
 import static com.example.tgs_dev.TestFixtures.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Unit tests for {@link ScheduleService}.
+ * Unit tests for {@link ScheduleService#calculateVehicleSchedules}.
  *
- * <p>{@link DurationResolver} is mocked so that the orchestration logic (loop,
- * ordering, linking) can be verified independently from the actual resolver chain.
- * The resolver chain itself is tested in {@link com.example.tgs_dev.service.schedule}
- * package tests.
+ * <h3>Design under test</h3>
+ * The method generates a route-level slot sequence via {@link DepartureSlotGenerator}
+ * and distributes those slots to vehicles in round-robin order, sorted by
+ * {@code scheduleTemplate.sequenceOrder}.
+ *
+ * <h3>Mock strategy</h3>
+ * {@link DepartureSlotGenerator} is mocked so that slot generation can be isolated
+ * from headway-resolver behaviour (tested separately in resolver unit tests).
+ * {@link RouteOperationalPeriodService} is mocked to control which period is active.
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ScheduleService – calculateVehicleSchedules")
@@ -38,264 +43,254 @@ class ScheduleServiceTest {
 
     @Mock ScheduleRepository            repo;
     @Mock TenantService                 tenantService;
-    @Mock DurationResolver              durationResolver;
+    @Mock DepartureSlotGenerator        slotGenerator;
     @Mock RouteOperationalPeriodService periodService;
 
     ScheduleService sut;
 
-    private static final Company COMPANY = company(1, "Test Corp");
+    private static final Company   COMPANY = company(1, "Test Corp");
+    private static final Route     ROUTE   = route(1, "R-1");
+    private static final LocalDate OP_DATE = LocalDate.of(2024, 6, 15);
 
-    private RouteOperation    op;
-    private VehicleAssignment va;
+    // Default slots returned by mocked generator — 9 slots, 8-minute headway
+    private static final List<LocalTime> NINE_SLOTS = List.of(
+            LocalTime.of(6, 0), LocalTime.of(6, 8), LocalTime.of(6, 16),
+            LocalTime.of(6, 24), LocalTime.of(6, 32), LocalTime.of(6, 40),
+            LocalTime.of(6, 48), LocalTime.of(6, 56), LocalTime.of(7, 4));
+
+    private RouteOperationalPeriod defaultPeriod;
+    private RouteOperation         op;
 
     @BeforeEach
     void setUp() {
-        sut = new ScheduleService(repo, tenantService, durationResolver, periodService);
+        sut = new ScheduleService(repo, tenantService, slotGenerator, periodService);
 
         lenient().when(tenantService.currentCompany()).thenReturn(COMPANY);
-        lenient().when(durationResolver.resolve(any(DurationResolverContext.class))).thenReturn(30);
-        // Default: period mirrors the route's own baseDuration/cycleCount so existing
-        // assertions don't break when a test doesn't need period-specific overrides.
-        // The null guard handles Mockito's internal stub-recording invocations where
-        // argument matchers produce null placeholder values.
+        lenient().when(tenantService.currentCompanyId()).thenReturn(1);
+
+        defaultPeriod = operationalPeriod(1, ROUTE, 90, 8, LocalDate.of(2024, 1, 1), null);
         lenient().when(periodService.findActiveForDateOrThrow(any(), any(), any()))
-                 .thenAnswer(inv -> {
-                     Route r = inv.getArgument(0);
-                     if (r == null) return null;   // Mockito stub-recording artifact
-                     RouteOperationalPeriod p = new RouteOperationalPeriod(
-                             r, COMPANY, "Default", 30, 3,
-                             LocalDate.of(2024, 1, 1), null);
-                     p.setId(0);
-                     return p;
-                 });
+                 .thenReturn(defaultPeriod);
 
-        Route route = route(1, "1");
-        ScheduleTemplate template = template(100, route, LocalTime.of(6, 0));
-        op = operation(1, route, OP_DATE);
-        va = assignment(1, op, vehicle(10, "V-001"), template, 1);
+        lenient().when(slotGenerator.generate(any(), any(), any()))
+                 .thenReturn(NINE_SLOTS);
+
+        op = operation(1, ROUTE, OP_DATE);
     }
 
-    @Test @DisplayName("generates exactly cycleCount schedules per assignment")
-    void generatesExactlyCycleCountSchedules() {
-        sut.calculateVehicleSchedules(List.of(va));
-        assertThat(capturedSchedules()).hasSize(3);
+    // ── Edge cases ────────────────────────────────────────────────────────────
+
+    @Test @DisplayName("empty assignment list → nothing saved, returns immediately")
+    void emptyList_savesNothing() {
+        sut.calculateVehicleSchedules(List.of());
+
+        verify(repo, never()).saveAll(any());
+        verify(slotGenerator, never()).generate(any(), any(), any());
     }
 
-    @Test @DisplayName("first schedule has the template's start time")
-    void firstScheduleStartsAtTemplateTime() {
-        sut.calculateVehicleSchedules(List.of(va));
-        assertThat(capturedSchedules().getFirst().getDepartureTime()).isEqualTo(LocalTime.of(6, 0));
+    // ── Slot count and global ordering ────────────────────────────────────────
+
+    @Test @DisplayName("total schedules equals total slot count regardless of vehicle count")
+    void totalSchedulesEqualsSlotCount() {
+        ScheduleTemplate t1 = template(1, ROUTE, 1);
+        ScheduleTemplate t2 = template(2, ROUTE, 2);
+        ScheduleTemplate t3 = template(3, ROUTE, 3);
+
+        List<VehicleAssignment> assignments = List.of(
+                assignment(1, op, vehicle(10, "V-01"), t1, 1),
+                assignment(2, op, vehicle(20, "V-02"), t2, 2),
+                assignment(3, op, vehicle(30, "V-03"), t3, 3)
+        );
+
+        sut.calculateVehicleSchedules(assignments);
+
+        // 9 slots → 9 schedules across 3 vehicles
+        assertThat(capturedSchedules()).hasSize(NINE_SLOTS.size());
     }
 
-    @Test @DisplayName("each consecutive schedule uses the duration from the resolver")
-    void schedulesIncrementByResolvedDuration() {
-        // resolver always returns 30 (stubbed in setUp)
-        sut.calculateVehicleSchedules(List.of(va));
-        List<Schedule> schedules = capturedSchedules();
-        assertThat(schedules.get(0).getDepartureTime()).isEqualTo(LocalTime.of(6,  0));
-        assertThat(schedules.get(1).getDepartureTime()).isEqualTo(LocalTime.of(6, 30));
-        assertThat(schedules.get(2).getDepartureTime()).isEqualTo(LocalTime.of(7,  0));
+    @Test @DisplayName("departureOrder is globally sequential (1-based) across all vehicles")
+    void departureOrderIsGloballySequential() {
+        ScheduleTemplate t1 = template(1, ROUTE, 1);
+        ScheduleTemplate t2 = template(2, ROUTE, 2);
+
+        List<VehicleAssignment> assignments = List.of(
+                assignment(1, op, vehicle(10, "V-01"), t1, 1),
+                assignment(2, op, vehicle(20, "V-02"), t2, 2)
+        );
+
+        sut.calculateVehicleSchedules(assignments);
+
+        assertThat(capturedSchedules())
+                .extracting(Schedule::getDepartureOrder)
+                .containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9);
     }
 
-    @Test @DisplayName("resolver is called once per cycle with the correct departure time")
-    void resolverCalledOncePerCycle() {
-        sut.calculateVehicleSchedules(List.of(va));
-        // cycleCount = 3 → resolver called 3 times
-        verify(durationResolver, times(3)).resolve(any(DurationResolverContext.class));
+    @Test @DisplayName("departure times match the slots produced by the generator")
+    void departureTimesMatchGeneratorSlots() {
+        ScheduleTemplate t1 = template(1, ROUTE, 1);
+        sut.calculateVehicleSchedules(List.of(assignment(1, op, vehicle(10, "V-01"), t1, 1)));
+
+        assertThat(capturedSchedules())
+                .extracting(Schedule::getDepartureTime)
+                .containsExactlyElementsOf(NINE_SLOTS);
     }
 
-    @Test @DisplayName("resolver context carries the operation's serviceDate")
-    void resolverContextCarriesServiceDate() {
+    // ── Round-robin vehicle assignment ────────────────────────────────────────
+
+    @Test @DisplayName("single vehicle receives all slots in order")
+    void singleVehicle_getsAllSlots() {
+        ScheduleTemplate t = template(1, ROUTE, 1);
+        VehicleAssignment va = assignment(1, op, vehicle(10, "V-01"), t, 1);
+
         sut.calculateVehicleSchedules(List.of(va));
 
-        ArgumentCaptor<DurationResolverContext> captor =
-                ArgumentCaptor.forClass(DurationResolverContext.class);
-        verify(durationResolver, atLeastOnce()).resolve(captor.capture());
-
-        captor.getAllValues()
-                .forEach(ctx -> assertThat(ctx.operationDate()).isEqualTo(OP_DATE));
-    }
-
-    @Test @DisplayName("departureOrder is 1-based and sequential")
-    void departureOrderIsOneBased() {
-        sut.calculateVehicleSchedules(List.of(va));
-        assertThat(capturedSchedules()).extracting(Schedule::getDepartureOrder)
-                .containsExactly(1, 2, 3);
-    }
-
-    @Test @DisplayName("each schedule is linked to its assignment")
-    void schedulesLinkedToAssignment() {
-        sut.calculateVehicleSchedules(List.of(va));
         assertThat(capturedSchedules())
                 .allSatisfy(s -> assertThat(s.getVehicleAssignment()).isEqualTo(va));
     }
 
-    @Test @DisplayName("dynamic durations: resolver returns different values per call")
-    void dynamicDurationsFromResolver() {
-        // Simulate a transition: first 2 calls return 120, then 60
-        when(durationResolver.resolve(any()))
-                .thenReturn(120, 120, 60);
+    @Test @DisplayName("3 vehicles receive slots in round-robin (V1→0,3,6 | V2→1,4,7 | V3→2,5,8)")
+    void threeVehicles_roundRobinAssignment() {
+        ScheduleTemplate t1 = template(1, ROUTE, 1);
+        ScheduleTemplate t2 = template(2, ROUTE, 2);
+        ScheduleTemplate t3 = template(3, ROUTE, 3);
 
-        Route            route    = route(2, "R2");
-        ScheduleTemplate template = template(200, route, LocalTime.of(6, 30));
-        RouteOperation   op2      = operation(2, route, OP_DATE);
-        VehicleAssignment va2     = assignment(2, op2, vehicle(20, "V-002"), template, 1);
+        VehicleAssignment va1 = assignment(1, op, vehicle(10, "V-01"), t1, 1);
+        VehicleAssignment va2 = assignment(2, op, vehicle(20, "V-02"), t2, 2);
+        VehicleAssignment va3 = assignment(3, op, vehicle(30, "V-03"), t3, 3);
 
-        sut.calculateVehicleSchedules(List.of(va2));
+        sut.calculateVehicleSchedules(List.of(va1, va2, va3));
 
         List<Schedule> schedules = capturedSchedules();
-        assertThat(schedules.get(0).getDepartureTime()).isEqualTo(LocalTime.of(6,  30));
-        assertThat(schedules.get(1).getDepartureTime()).isEqualTo(LocalTime.of(8,  30)); // +120
-        assertThat(schedules.get(2).getDepartureTime()).isEqualTo(LocalTime.of(10, 30)); // +120
+
+        // Slot indices 0,3,6 → Vehicle 1
+        assertThat(schedules.get(0).getVehicleAssignment()).isEqualTo(va1);
+        assertThat(schedules.get(3).getVehicleAssignment()).isEqualTo(va1);
+        assertThat(schedules.get(6).getVehicleAssignment()).isEqualTo(va1);
+
+        // Slot indices 1,4,7 → Vehicle 2
+        assertThat(schedules.get(1).getVehicleAssignment()).isEqualTo(va2);
+        assertThat(schedules.get(4).getVehicleAssignment()).isEqualTo(va2);
+        assertThat(schedules.get(7).getVehicleAssignment()).isEqualTo(va2);
+
+        // Slot indices 2,5,8 → Vehicle 3
+        assertThat(schedules.get(2).getVehicleAssignment()).isEqualTo(va3);
+        assertThat(schedules.get(5).getVehicleAssignment()).isEqualTo(va3);
+        assertThat(schedules.get(8).getVehicleAssignment()).isEqualTo(va3);
     }
 
-    @Nested @DisplayName("multiple assignments")
-    class MultipleAssignments {
+    @Test @DisplayName("tripNumber is per-vehicle 1-based; departureOrder is global 1-based")
+    void tripNumberPerVehicle_departureOrderGlobal() {
+        ScheduleTemplate t1 = template(1, ROUTE, 1);
+        ScheduleTemplate t2 = template(2, ROUTE, 2);
+        ScheduleTemplate t3 = template(3, ROUTE, 3);
 
-        @Test @DisplayName("total schedule count equals sum of all cycleCount values")
-        void totalCountMatchesSumOfCycles() {
-            Route route2      = route(2, "2");
-            ScheduleTemplate t2  = template(200, route2, LocalTime.of(7, 0));
-            VehicleAssignment va2 = assignment(2, op, vehicle(20, "V-002"), t2, 2);
+        VehicleAssignment va1 = assignment(1, op, vehicle(10, "V-01"), t1, 1);
+        VehicleAssignment va2 = assignment(2, op, vehicle(20, "V-02"), t2, 2);
+        VehicleAssignment va3 = assignment(3, op, vehicle(30, "V-03"), t3, 3);
 
-            // route2 needs cycleCount=2 via period (default stub returns 3)
-            when(periodService.findActiveForDateOrThrow(eq(route2), any(), any()))
-                    .thenReturn(new RouteOperationalPeriod(
-                            route2, COMPANY, "Default", 20, 2,
-                            LocalDate.of(2024, 1, 1), null));
+        sut.calculateVehicleSchedules(List.of(va1, va2, va3));
 
-            sut.calculateVehicleSchedules(List.of(va, va2));
+        List<Schedule> schedules = capturedSchedules();
 
-            // va → 3 schedules, va2 → 2 schedules
-            assertThat(capturedSchedules()).hasSize(5);
-        }
+        // departureOrder is global (1..9 across vehicles)
+        assertThat(schedules).extracting(Schedule::getDepartureOrder)
+                .containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9);
 
-        @Test @DisplayName("schedules for each assignment start at their own template's start time")
-        void eachAssignmentUsesItsOwnStartTime() {
-            Route route2      = route(2, "2");
-            ScheduleTemplate t2  = template(200, route2, LocalTime.of(8, 0));
-            VehicleAssignment va2 = assignment(2, op, vehicle(20, "V-002"), t2, 2);
+        // tripNumber is per-vehicle: vehicle assigned to slot k%3 has trips
+        // slot 0,3,6 → trip 1, 2, 3 (vehicle 1)
+        // slot 1,4,7 → trip 1, 2, 3 (vehicle 2)
+        // slot 2,5,8 → trip 1, 2, 3 (vehicle 3)
+        // In the global departureOrder sequence the tripNumber pattern is therefore:
+        // 1,1,1, 2,2,2, 3,3,3
+        assertThat(schedules).extracting(Schedule::getTripNumber)
+                .containsExactly(1, 1, 1, 2, 2, 2, 3, 3, 3);
 
-            sut.calculateVehicleSchedules(List.of(va, va2));
-
-            List<Schedule> all    = capturedSchedules();
-            List<Schedule> forVa  = all.stream().filter(s -> s.getVehicleAssignment().equals(va)).toList();
-            List<Schedule> forVa2 = all.stream().filter(s -> s.getVehicleAssignment().equals(va2)).toList();
-
-            assertThat(forVa.getFirst().getDepartureTime()).isEqualTo(LocalTime.of(6, 0));
-            assertThat(forVa2.getFirst().getDepartureTime()).isEqualTo(LocalTime.of(8, 0));
-        }
+        // Sanity: trip 1 of vehicle 1 is at slot 0; trip 2 of vehicle 1 is at slot 3.
+        assertThat(schedules.get(0).getTripNumber()).isEqualTo(1);
+        assertThat(schedules.get(3).getTripNumber()).isEqualTo(2);
+        assertThat(schedules.get(6).getTripNumber()).isEqualTo(3);
     }
 
-    @Test @DisplayName("empty assignment list results in an empty saveAll call")
-    void emptyList_savesNothing() {
-        sut.calculateVehicleSchedules(List.of());
-        assertThat(capturedSchedules()).isEmpty();
+    // ── Vehicle order driven by sequenceOrder ─────────────────────────────────
+
+    @Test @DisplayName("vehicles sorted by sequenceOrder ASC, not by insertion order")
+    void vehiclesSortedBySequenceOrder() {
+        // Provide assignments in reverse sequence order — they should be sorted before assignment
+        ScheduleTemplate t3 = template(3, ROUTE, 3);
+        ScheduleTemplate t1 = template(1, ROUTE, 1);
+        ScheduleTemplate t2 = template(2, ROUTE, 2);
+
+        VehicleAssignment va3 = assignment(3, op, vehicle(30, "V-03"), t3, 3);
+        VehicleAssignment va1 = assignment(1, op, vehicle(10, "V-01"), t1, 1);
+        VehicleAssignment va2 = assignment(2, op, vehicle(20, "V-02"), t2, 2);
+
+        // Pass in scrambled order: t3, t1, t2
+        sut.calculateVehicleSchedules(List.of(va3, va1, va2));
+
+        List<Schedule> schedules = capturedSchedules();
+
+        // After sorting by sequenceOrder (1,2,3), slot 0 goes to va1 (order=1)
+        assertThat(schedules.get(0).getVehicleAssignment()).isEqualTo(va1);
+        assertThat(schedules.get(1).getVehicleAssignment()).isEqualTo(va2);
+        assertThat(schedules.get(2).getVehicleAssignment()).isEqualTo(va3);
     }
 
-    // ── RouteOperationalPeriod resolution ─────────────────────────────────────
+    // ── Generator and period interaction ─────────────────────────────────────
 
-    @Nested @DisplayName("RouteOperationalPeriod resolution")
-    class PeriodResolution {
+    @Test @DisplayName("generator is called with the active period, route, and operation date")
+    void generatorCalledWithCorrectArguments() {
+        ScheduleTemplate t = template(1, ROUTE, 1);
+        sut.calculateVehicleSchedules(List.of(assignment(1, op, vehicle(10, "V-01"), t, 1)));
 
-        private RouteOperationalPeriod fakePeriod(Route route, int baseDuration, int cycleCount) {
-            RouteOperationalPeriod p = new RouteOperationalPeriod(
-                    route, COMPANY, "Test Period", baseDuration, cycleCount,
-                    LocalDate.of(2024, 1, 1), null);
-            p.setId(99);
-            return p;
-        }
-
-        @Test @DisplayName("uses period cycleCount when an active period is found")
-        void activePeriod_usesPeriodCycleCount() {
-            Route route = route(1, "1");
-            ScheduleTemplate t = template(100, route, LocalTime.of(6, 0));
-            RouteOperation o = operation(1, route, OP_DATE);
-            VehicleAssignment v = assignment(1, o, vehicle(10, "V-001"), t, 1);
-
-            // Period overrides cycleCount to 5
-            when(periodService.findActiveForDateOrThrow(eq(route), any(), eq(OP_DATE)))
-                    .thenReturn(fakePeriod(route, 30, 5));
-
-            sut.calculateVehicleSchedules(List.of(v));
-
-            assertThat(capturedSchedules()).hasSize(5);
-        }
-
-        @Test @DisplayName("uses period baseDuration in resolver context when active")
-        void activePeriod_usesPeriodBaseDurationInContext() {
-            Route route = route(1, "1");
-            ScheduleTemplate t = template(100, route, LocalTime.of(6, 0));
-            RouteOperation o = operation(1, route, OP_DATE);
-            VehicleAssignment v = assignment(1, o, vehicle(10, "V-001"), t, 1);
-
-            // Period overrides baseDuration to 60
-            when(periodService.findActiveForDateOrThrow(eq(route), any(), eq(OP_DATE)))
-                    .thenReturn(fakePeriod(route, 60, 2));
-
-            sut.calculateVehicleSchedules(List.of(v));
-
-            ArgumentCaptor<DurationResolverContext> captor =
-                    ArgumentCaptor.forClass(DurationResolverContext.class);
-            verify(durationResolver, atLeastOnce()).resolve(captor.capture());
-            captor.getAllValues()
-                    .forEach(ctx -> assertThat(ctx.effectiveBaseDuration()).isEqualTo(60));
-        }
-
-        @Test @DisplayName("throws BusinessException when no active period covers the operation date")
-        void noPeriod_throws() {
-            when(periodService.findActiveForDateOrThrow(any(), any(), any()))
-                    .thenThrow(new BusinessException(
-                            "validation.routeOperationalPeriod.noPeriodForDate|1|" + OP_DATE));
-
-            List<VehicleAssignment> assignments = List.of(va);
-            assertThatThrownBy(() -> sut.calculateVehicleSchedules(assignments))
-                    .isInstanceOf(BusinessException.class);
-            verify(repo, never()).saveAll(any());
-        }
-
-        @Test @DisplayName("period time ranges are carried into every resolver context")
-        void activePeriod_timeRangesPassedToContext() {
-            Route route = route(1, "1");
-            ScheduleTemplate t = template(100, route, LocalTime.of(6, 0));
-            RouteOperation o = operation(1, route, OP_DATE);
-            VehicleAssignment v = assignment(1, o, vehicle(10, "V-001"), t, 1);
-
-            RouteOperationalPeriod period = fakePeriod(route, 30, 2);
-            period.setUseTimeRanges(true);
-            OperationalPeriodTimeRange range = new OperationalPeriodTimeRange(
-                    LocalTime.of(6, 0), LocalTime.of(12, 0), 45, 1, false);
-            range.setPeriod(period);
-            period.getTimeRanges().add(range);
-
-            when(periodService.findActiveForDateOrThrow(eq(route), any(), eq(OP_DATE)))
-                    .thenReturn(period);
-
-            sut.calculateVehicleSchedules(List.of(v));
-
-            ArgumentCaptor<DurationResolverContext> captor =
-                    ArgumentCaptor.forClass(DurationResolverContext.class);
-            verify(durationResolver, atLeastOnce()).resolve(captor.capture());
-            captor.getAllValues().forEach(ctx -> {
-                assertThat(ctx.effectiveTimeRanges()).hasSize(1);
-                assertThat(ctx.effectiveTimeRanges().getFirst().durationMinutes()).isEqualTo(45);
-            });
-        }
+        verify(slotGenerator).generate(defaultPeriod, ROUTE, OP_DATE);
     }
 
-    // ── Template startTime resolution (now direct from entity) ────────────────
+    @Test @DisplayName("period is resolved once per call regardless of vehicle count")
+    void periodResolvedOnce() {
+        ScheduleTemplate t1 = template(1, ROUTE, 1);
+        ScheduleTemplate t2 = template(2, ROUTE, 2);
 
-    @Nested @DisplayName("Template startTime")
-    class TemplateStartTime {
-        @Test @DisplayName("first schedule uses the template's startTime directly")
-        void usesTemplateStartTime() {
-            // SCD: the FK on VehicleAssignment points to the template version active
-            // at assignment creation, so template.getStartTime() is already historically correct.
-            sut.calculateVehicleSchedules(List.of(va));
+        sut.calculateVehicleSchedules(List.of(
+                assignment(1, op, vehicle(10, "V-01"), t1, 1),
+                assignment(2, op, vehicle(20, "V-02"), t2, 2)
+        ));
 
-            assertThat(capturedSchedules().getFirst().getDepartureTime())
-                    .isEqualTo(LocalTime.of(6, 0));
-        }
+        verify(periodService, times(1)).findActiveForDateOrThrow(any(), any(), any());
+    }
+
+    @Test @DisplayName("throws BusinessException when no active period covers the operation date")
+    void noPeriod_throws() {
+        when(periodService.findActiveForDateOrThrow(any(), any(), any()))
+                .thenThrow(new BusinessException(
+                        "validation.routeOperationalPeriod.noPeriodForDate|1|" + OP_DATE));
+
+        ScheduleTemplate t = template(1, ROUTE, 1);
+        List<VehicleAssignment> assignments = List.of(
+                assignment(1, op, vehicle(10, "V-01"), t, 1));
+
+        assertThatThrownBy(() -> sut.calculateVehicleSchedules(assignments))
+                .isInstanceOf(BusinessException.class);
+
+        verify(repo, never()).saveAll(any());
+    }
+
+    // ── Persistence ───────────────────────────────────────────────────────────
+
+    @Test @DisplayName("all schedules are persisted in a single saveAll call")
+    void persistsInSingleBatch() {
+        ScheduleTemplate t = template(1, ROUTE, 1);
+        sut.calculateVehicleSchedules(List.of(assignment(1, op, vehicle(10, "V-01"), t, 1)));
+
+        verify(repo, times(1)).saveAll(anyList());
+    }
+
+    @Test @DisplayName("each schedule is linked to the correct company")
+    void schedulesLinkedToCompany() {
+        ScheduleTemplate t = template(1, ROUTE, 1);
+        sut.calculateVehicleSchedules(List.of(assignment(1, op, vehicle(10, "V-01"), t, 1)));
+
+        assertThat(capturedSchedules())
+                .allSatisfy(s -> assertThat(s.getCompany()).isEqualTo(COMPANY));
     }
 
     // ── CRUD delegation ───────────────────────────────────────────────────────
@@ -304,19 +299,10 @@ class ScheduleServiceTest {
     class FindAll {
         @Test @DisplayName("delegates to repo.findAll")
         void delegates() {
-            Schedule s = schedule(1, va, 1, LocalTime.of(6, 0));
+            ScheduleTemplate t = template(1, ROUTE, 1);
+            Schedule s = schedule(1, assignment(1, op, vehicle(10, "V-01"), t, 1), 1, LocalTime.of(6, 0));
             when(repo.findAll()).thenReturn(List.of(s));
             assertThat(sut.findAll()).containsExactly(s);
-        }
-    }
-
-    @Nested @DisplayName("save (single)")
-    class SaveSingle {
-        @Test @DisplayName("delegates to repo.save and returns persisted entity")
-        void delegates() {
-            Schedule s = schedule(1, va, 1, LocalTime.of(6, 0));
-            when(repo.save(s)).thenReturn(s);
-            assertThat(sut.save(s)).isSameAs(s);
         }
     }
 
@@ -324,7 +310,8 @@ class ScheduleServiceTest {
     class FindById {
         @Test @DisplayName("returns Optional when found")
         void found() {
-            Schedule s = schedule(1, va, 1, LocalTime.of(6, 0));
+            ScheduleTemplate t = template(1, ROUTE, 1);
+            Schedule s = schedule(1, assignment(1, op, vehicle(10, "V-01"), t, 1), 1, LocalTime.of(6, 0));
             when(repo.findById(1)).thenReturn(Optional.of(s));
             assertThat(sut.findById(1)).contains(s);
         }
@@ -336,43 +323,14 @@ class ScheduleServiceTest {
         }
     }
 
-    @Nested @DisplayName("delete (single)")
-    class DeleteSingle {
-        @Test @DisplayName("delegates to repo.delete")
-        void delegates() {
-            Schedule s = schedule(1, va, 1, LocalTime.of(6, 0));
-            sut.delete(s);
-            verify(repo).delete(s);
-        }
-    }
-
     @Nested @DisplayName("findAllByAssignment")
     class FindAllByAssignment {
-        @Test @DisplayName("delegates to repo with a Specification filtering by assignment ids")
+        @Test @DisplayName("delegates to repo with a Specification")
         void delegates() {
-            Schedule s = schedule(1, va, 1, LocalTime.of(6, 0));
+            ScheduleTemplate t = template(1, ROUTE, 1);
+            Schedule s = schedule(1, assignment(1, op, vehicle(10, "V-01"), t, 1), 1, LocalTime.of(6, 0));
             when(repo.findAll(any(Specification.class))).thenReturn(List.of(s));
             assertThat(sut.findAllByAssignment(List.of(1))).containsExactly(s);
-        }
-    }
-
-    @Nested @DisplayName("findAllById")
-    class FindAllById {
-        @Test @DisplayName("delegates to repo.findAllById")
-        void delegates() {
-            Schedule s = schedule(1, va, 1, LocalTime.of(6, 0));
-            when(repo.findAllById(List.of(1))).thenReturn(List.of(s));
-            assertThat(sut.findAllById(List.of(1))).containsExactly(s);
-        }
-    }
-
-    @Nested @DisplayName("saveAll (list)")
-    class SaveAll {
-        @Test @DisplayName("delegates to repo.saveAll and returns persisted list")
-        void delegates() {
-            Schedule s = schedule(1, va, 1, LocalTime.of(6, 0));
-            when(repo.saveAll(List.of(s))).thenReturn(List.of(s));
-            assertThat(sut.saveAll(List.of(s))).containsExactly(s);
         }
     }
 

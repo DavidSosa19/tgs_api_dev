@@ -40,57 +40,63 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain chain)
             throws ServletException, IOException {
 
-        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            chain.doFilter(request, response);
-            return;
-        }
-
-        String token = authHeader.substring(7);
-
+        // Single outer try/finally guarantees TenantContext is cleared on EVERY
+        // exit path — including non-JWT RuntimeExceptions thrown by
+        // userDetailsService.loadUserByUsername (DB outage, lock timeout, etc.)
+        // and any downstream filter/controller failure.  Without this, a Tomcat
+        // worker thread could retain a previous request's tenant id and the
+        // next unauthenticated request (no Authorization header) would inherit
+        // it because the no-token short-circuit never clears.
         try {
-            Claims claims = jwtService.validateAndExtract(token);
+            String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 
-            if (!"access".equals(claims.get("type", String.class))) {
-                sendError(response, "Token type not allowed");
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                chain.doFilter(request, response);
                 return;
             }
 
-            String username = claims.getSubject();
+            String token = authHeader.substring(7);
 
-            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            try {
+                Claims claims = jwtService.validateAndExtract(token);
 
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails, null, userDetails.getAuthorities());
-
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
-
-                // Populate the tenant context so service-layer queries can scope
-                // results to this user's company without extra DB lookups.
-                // SUPER_ADMIN users have no tenant company; guard before setting.
-                if (userDetails instanceof User u) {
-                    Optional.ofNullable(u.getCompany())
-                            .ifPresent(c -> TenantContext.set(c.getId()));
+                if (!"access".equals(claims.get("type", String.class))) {
+                    sendError(response, "Token type not allowed");
+                    return;
                 }
+
+                String username = claims.getSubject();
+
+                if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                    UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails, null, userDetails.getAuthorities());
+
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+
+                    // Populate the tenant context so service-layer queries can scope
+                    // results to this user's company without extra DB lookups.
+                    // SUPER_ADMIN users have no tenant company; guard before setting.
+                    if (userDetails instanceof User u) {
+                        Optional.ofNullable(u.getCompany())
+                                .ifPresent(c -> TenantContext.set(c.getId()));
+                    }
+                }
+
+            } catch (ExpiredJwtException e) {
+                sendError(response, "Token expired");
+                return;
+            } catch (JwtException e) {
+                sendError(response, "Invalid token");
+                return;
             }
 
-        } catch (ExpiredJwtException e) {
-            sendError(response, "Token expired");
-            return;
-        } catch (JwtException e) {
-            sendError(response, "Invalid token");
-            return;
-        }
-
-        try {
             chain.doFilter(request, response);
         } finally {
-            // Always clear the tenant context to prevent context leakage on
-            // thread-pool threads that serve subsequent requests.
+            // Always clear — never leak tenant context across pooled threads.
             TenantContext.clear();
         }
     }

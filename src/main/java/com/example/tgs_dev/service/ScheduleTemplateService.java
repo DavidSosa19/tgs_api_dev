@@ -1,6 +1,5 @@
 package com.example.tgs_dev.service;
 
-import com.example.tgs_dev.controller.exception.ResourceNotFoundException;
 import com.example.tgs_dev.controller.request.ScheduleTemplateRequest;
 import com.example.tgs_dev.entity.Company;
 import com.example.tgs_dev.entity.Route;
@@ -33,6 +32,8 @@ import java.util.Optional;
 @Service
 public class ScheduleTemplateService {
 
+    private static final String NOT_FOUND = "notFound.template|";
+
     private final ScheduleTemplateRepository      scheduleTemplateRepository;
     private final ScheduleTemplateGroupRepository scheduleTemplateGroupRepository;
     private final TenantService                   tenantService;
@@ -57,7 +58,7 @@ public class ScheduleTemplateService {
     public ScheduleTemplate findByGroupId(Long groupId) {
         return scheduleTemplateRepository
                 .findCurrentByGroupId(groupId, tenantService.currentCompanyId())
-                .orElseThrow(() -> new NoSuchElementException("notFound.template|" + groupId));
+                .orElseThrow(() -> new NoSuchElementException(NOT_FOUND + groupId));
     }
 
     /**
@@ -79,7 +80,7 @@ public class ScheduleTemplateService {
     public ScheduleTemplate findById(Integer id) {
         return scheduleTemplateRepository
                 .findByIdActiveWithRoutes(id, tenantService.currentCompanyId())
-                .orElseThrow(() -> new NoSuchElementException("notFound.template|" + id));
+                .orElseThrow(() -> new NoSuchElementException(NOT_FOUND + id));
     }
 
     @Transactional(readOnly = true)
@@ -126,7 +127,7 @@ public class ScheduleTemplateService {
         Integer companyId = tenantService.currentCompanyId();
         ScheduleTemplate current = scheduleTemplateRepository
                 .findCurrentByGroupId(groupId, companyId)
-                .orElseThrow(() -> new NoSuchElementException("notFound.template|" + groupId));
+                .orElseThrow(() -> new NoSuchElementException(NOT_FOUND + groupId));
 
         LocalDateTime now = LocalDateTime.now();
         current.setVersionTo(now);
@@ -150,7 +151,7 @@ public class ScheduleTemplateService {
         Integer companyId = tenantService.currentCompanyId();
         ScheduleTemplate current = scheduleTemplateRepository
                 .findCurrentByGroupId(groupId, companyId)
-                .orElseThrow(() -> new NoSuchElementException("notFound.template|" + groupId));
+                .orElseThrow(() -> new NoSuchElementException(NOT_FOUND + groupId));
         scheduleTemplateRepository.softDelete(current);
     }
 
@@ -162,7 +163,7 @@ public class ScheduleTemplateService {
         Integer companyId = tenantService.currentCompanyId();
         ScheduleTemplate last = scheduleTemplateRepository
                 .findCurrentByGroupId(groupId, companyId)
-                .orElseThrow(() -> new NoSuchElementException("notFound.template|" + groupId));
+                .orElseThrow(() -> new NoSuchElementException(NOT_FOUND + groupId));
 
         LocalDateTime now = LocalDateTime.now();
         last.setVersionTo(now);
@@ -170,7 +171,7 @@ public class ScheduleTemplateService {
         scheduleTemplateRepository.save(last);
 
         ScheduleTemplate next = new ScheduleTemplate(
-                last.getRoute(), last.getTemplateNumber(), last.getName(), last.getStartTime());
+                last.getRoute(), last.getTemplateNumber(), last.getName(), last.getSequenceOrder());
         next.setSecondaryRoute(last.getSecondaryRoute());
         next.setActive(true);
         next.setCompany(last.getCompany());
@@ -197,7 +198,7 @@ public class ScheduleTemplateService {
                                           Route route, Route secondaryRoute) {
         template.setTemplateNumber(request.templateNumber());
         template.setName(request.name());
-        template.setStartTime(request.startTime());
+        template.setSequenceOrder(request.sequenceOrder());
         template.setRoute(route);
         template.setSecondaryRoute(secondaryRoute);
         if (request.active() != null) template.setActive(request.active());

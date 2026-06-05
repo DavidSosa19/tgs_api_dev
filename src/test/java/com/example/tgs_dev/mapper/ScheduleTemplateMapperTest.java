@@ -9,7 +9,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,7 +38,7 @@ class ScheduleTemplateMapperTest {
 
         @Test @DisplayName("maps all fields; null secondaryRoute → null in DTO")
         void mapsAllFields_noSecondaryRoute() {
-            ScheduleTemplate t = new ScheduleTemplate(route, "T-01", "Morning", LocalTime.of(6, 0));
+            ScheduleTemplate t = new ScheduleTemplate(route, "T-01", "Morning", 1);
             t.setId(10);
             t.setActive(true);
 
@@ -49,7 +48,7 @@ class ScheduleTemplateMapperTest {
             assertThat(dto.templateNumber()).isEqualTo("T-01");
             assertThat(dto.name()).isEqualTo("Morning");
             assertThat(dto.active()).isTrue();
-            assertThat(dto.startTime()).isEqualTo(LocalTime.of(6, 0));
+            assertThat(dto.sequenceOrder()).isEqualTo(1);
             assertThat(dto.route()).isNotNull();
             assertThat(dto.route().routeNumber()).isEqualTo("R-1");
             assertThat(dto.secondaryRoute()).isNull();
@@ -59,7 +58,7 @@ class ScheduleTemplateMapperTest {
         void mapsSecondaryRoute() {
             Route secondary = new Route("R-2");
             secondary.setId(2);
-            ScheduleTemplate t = new ScheduleTemplate(route, "T-02", "Evening", LocalTime.of(18, 0));
+            ScheduleTemplate t = new ScheduleTemplate(route, "T-02", "Evening", 2);
             t.setSecondaryRoute(secondary);
 
             ScheduleTemplateDTO dto = sut.toDTO(t);
@@ -81,8 +80,8 @@ class ScheduleTemplateMapperTest {
 
         @Test @DisplayName("maps every element preserving order")
         void mapsAll() {
-            ScheduleTemplate t1 = new ScheduleTemplate(route, "T-A", "A", LocalTime.of(6, 0));
-            ScheduleTemplate t2 = new ScheduleTemplate(route, "T-B", "B", LocalTime.of(12, 0));
+            ScheduleTemplate t1 = new ScheduleTemplate(route, "T-A", "A", 1);
+            ScheduleTemplate t2 = new ScheduleTemplate(route, "T-B", "B", 2);
             List<ScheduleTemplateDTO> dtos = sut.toDTOList(List.of(t1, t2));
             assertThat(dtos).hasSize(2);
             assertThat(dtos.get(0).templateNumber()).isEqualTo("T-A");
@@ -97,32 +96,32 @@ class ScheduleTemplateMapperTest {
 
         @Test @DisplayName("overwrites all mutable fields")
         void updatesFields() {
-            ScheduleTemplate t = new ScheduleTemplate(route, "OLD", "Old Name", LocalTime.of(6, 0));
+            ScheduleTemplate t = new ScheduleTemplate(route, "OLD", "Old Name", 1);
             Route newRoute = new Route("");
-            var req = new ScheduleTemplateRequest(1L, null, "T-NEW", "New Name", LocalTime.of(8, 0), null);
+            var req = new ScheduleTemplateRequest(1L, null, "T-NEW", "New Name", 3, null);
 
             sut.updateEntity(t, req, newRoute, null);
 
             assertThat(t.getTemplateNumber()).isEqualTo("T-NEW");
             assertThat(t.getName()).isEqualTo("New Name");
-            assertThat(t.getStartTime()).isEqualTo(LocalTime.of(8, 0));
+            assertThat(t.getSequenceOrder()).isEqualTo(3);
             assertThat(t.getRoute()).isEqualTo(newRoute);
             assertThat(t.getSecondaryRoute()).isNull();
         }
 
         @Test @DisplayName("applies active when not null")
         void updatesActiveWhenPresent() {
-            ScheduleTemplate t = new ScheduleTemplate(route, "T", "N", LocalTime.NOON);
-            var req = new ScheduleTemplateRequest(1L, null, "T", "N", LocalTime.NOON, false);
+            ScheduleTemplate t = new ScheduleTemplate(route, "T", "N", 1);
+            var req = new ScheduleTemplateRequest(1L, null, "T", "N", 1, false);
             sut.updateEntity(t, req, route, null);
             assertThat(t.getActive()).isFalse();
         }
 
         @Test @DisplayName("skips active when null — leaves existing value")
         void skipsActiveWhenNull() {
-            ScheduleTemplate t = new ScheduleTemplate(route, "T", "N", LocalTime.NOON);
+            ScheduleTemplate t = new ScheduleTemplate(route, "T", "N", 1);
             t.setActive(true);
-            var req = new ScheduleTemplateRequest(1L, null, "T", "N", LocalTime.NOON, null);
+            var req = new ScheduleTemplateRequest(1L, null, "T", "N", 1, null);
             sut.updateEntity(t, req, route, null);
             assertThat(t.getActive()).isTrue();
         }

@@ -8,8 +8,6 @@ import com.example.tgs_dev.repository.VehicleRotationRepository;
 import com.example.tgs_dev.repository.filter.FilterRequest;
 import com.example.tgs_dev.repository.specification.CommonSpecifications;
 import com.example.tgs_dev.repository.specification.TenantSpecifications;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -21,8 +19,6 @@ import java.util.stream.Collectors;
 
 @Service
 public class VehicleRotationService {
-
-    private static final Logger log = LoggerFactory.getLogger(VehicleRotationService.class);
 
     private final VehicleRotationRepository vehicleRotationRepository;
     private final TenantService             tenantService;
@@ -100,7 +96,7 @@ public class VehicleRotationService {
         List<RotationEntry> sortedSlots = entries.stream()
                 .filter(e -> e.getVehicle()          != null && Boolean.TRUE.equals(e.getVehicle().getActive()))
                 .filter(e -> e.getScheduleTemplate() != null && Boolean.TRUE.equals(e.getScheduleTemplate().getActive()))
-                .sorted(Comparator.comparing(e -> e.getScheduleTemplate().getStartTime()))
+                .sorted(Comparator.comparingInt(e -> e.getScheduleTemplate().getSequenceOrder()))
                 .collect(Collectors.toCollection(ArrayList::new));
 
         // Rotate only the vehicles, keeping each template pinned to its slot.

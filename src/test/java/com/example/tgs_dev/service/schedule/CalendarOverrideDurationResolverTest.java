@@ -117,8 +117,8 @@ class CalendarOverrideDurationResolverTest {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private DurationResolverContext ctx(LocalTime time) {
-        return new DurationResolverContext(ROUTE, time, DATE, 30, List.of());
+    private ScheduleResolverContext ctx(LocalTime time) {
+        return new ScheduleResolverContext(ROUTE, time, DATE, 30, 8, List.of());
     }
 
     private RouteCalendarOverride fixedOverride(int baseDuration) {

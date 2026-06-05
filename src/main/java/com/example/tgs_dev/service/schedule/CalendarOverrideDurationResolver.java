@@ -48,7 +48,7 @@ public final class CalendarOverrideDurationResolver implements DurationResolver 
     }
 
     @Override
-    public int resolve(DurationResolverContext context) {
+    public int resolve(ScheduleResolverContext context) {
         Optional<RouteCalendarOverride> maybeOverride =
                 overrideService.findByRouteAndDate(context.route(), context.operationDate());
 
@@ -76,8 +76,10 @@ public final class CalendarOverrideDurationResolver implements DurationResolver 
 
     private static List<TimeRangeLookup> toLookups(List<RouteCalendarOverrideRange> ranges) {
         if (ranges == null) return List.of();
+        // Calendar overrides carry duration data only — headwayMinutes = 0 signals
+        // "no headway override here" to RouteTimeRangeResolver.resolveHeadway().
         return ranges.stream()
-                .map(r -> new TimeRangeLookup(
+                .map(r -> TimeRangeLookup.durationOnly(
                         r.getRangeStart(),
                         r.getRangeEnd(),
                         r.getDurationMinutes(),

@@ -33,6 +33,7 @@ class TimeRangeValidatorTest {
                 LocalTime.of(startHour, 0),
                 LocalTime.of(startHour, 30),
                 30,
+                8,
                 false);
     }
 
@@ -48,6 +49,7 @@ class TimeRangeValidatorTest {
                 LocalTime.of(startHour, 0),
                 LocalTime.of(endHour, 0),
                 60,
+                8,
                 true);
     }
 
@@ -122,7 +124,7 @@ class TimeRangeValidatorTest {
         @Test @DisplayName("rangeEnd == rangeStart → timeRanges.endBeforeStart")
         void equalTimes_throws() {
             RouteTimeRangeRequest bad = new RouteTimeRangeRequest(
-                    LocalTime.of(8, 0), LocalTime.of(8, 0), 30, false);
+                    LocalTime.of(8, 0), LocalTime.of(8, 0), 30, 8, false);
             List<RouteTimeRangeRequest> twoRanges = List.of(range(6), bad);
             assertThatThrownBy(() -> TimeRangeValidator.validate(twoRanges, CTX))
                     .isInstanceOf(BusinessException.class)
@@ -132,7 +134,7 @@ class TimeRangeValidatorTest {
         @Test @DisplayName("rangeEnd before rangeStart → timeRanges.endBeforeStart")
         void endBefore_throws() {
             RouteTimeRangeRequest bad = new RouteTimeRangeRequest(
-                    LocalTime.of(9, 0), LocalTime.of(8, 0), 30, false);
+                    LocalTime.of(9, 0), LocalTime.of(8, 0), 30, 8, false);
             List<RouteTimeRangeRequest> twoRanges = List.of(range(6), bad);
             assertThatThrownBy(() -> TimeRangeValidator.validate(twoRanges, CTX))
                     .isInstanceOf(BusinessException.class)
@@ -164,9 +166,9 @@ class TimeRangeValidatorTest {
         void touching_valid() {
             // 06:00–07:00, 07:00–08:00 — touching but not overlapping
             RouteTimeRangeRequest r1 = new RouteTimeRangeRequest(
-                    LocalTime.of(6, 0), LocalTime.of(7, 0), 30, false);
+                    LocalTime.of(6, 0), LocalTime.of(7, 0), 30, 8, false);
             RouteTimeRangeRequest r2 = new RouteTimeRangeRequest(
-                    LocalTime.of(7, 0), LocalTime.of(8, 0), 30, false);
+                    LocalTime.of(7, 0), LocalTime.of(8, 0), 30, 8, false);
             assertThatNoException()
                     .isThrownBy(() -> TimeRangeValidator.validate(List.of(r1, r2), CTX));
         }
@@ -175,9 +177,9 @@ class TimeRangeValidatorTest {
         void overlap_throws() {
             // 06:00–07:30, 07:00–08:00 — overlaps by 30 min
             RouteTimeRangeRequest r1 = new RouteTimeRangeRequest(
-                    LocalTime.of(6, 0), LocalTime.of(7, 30), 30, false);
+                    LocalTime.of(6, 0), LocalTime.of(7, 30), 30, 8, false);
             RouteTimeRangeRequest r2 = new RouteTimeRangeRequest(
-                    LocalTime.of(7, 0), LocalTime.of(8, 0), 30, false);
+                    LocalTime.of(7, 0), LocalTime.of(8, 0), 30, 8, false);
             List<RouteTimeRangeRequest> ranges = List.of(r1, r2);
             assertThatThrownBy(() -> TimeRangeValidator.validate(ranges, CTX))
                     .isInstanceOf(BusinessException.class)
@@ -188,9 +190,9 @@ class TimeRangeValidatorTest {
         void overlap_outOfOrder_throws() {
             // Supplied in reverse order — validator sorts before checking
             RouteTimeRangeRequest later   = new RouteTimeRangeRequest(
-                    LocalTime.of(7, 0), LocalTime.of(8, 30), 30, false);
+                    LocalTime.of(7, 0), LocalTime.of(8, 30), 30, 8, false);
             RouteTimeRangeRequest earlier = new RouteTimeRangeRequest(
-                    LocalTime.of(6, 0), LocalTime.of(7, 30), 30, false);
+                    LocalTime.of(6, 0), LocalTime.of(7, 30), 30, 8, false);
             List<RouteTimeRangeRequest> outOfOrder = List.of(later, earlier);
             assertThatThrownBy(() -> TimeRangeValidator.validate(outOfOrder, CTX))
                     .isInstanceOf(BusinessException.class)
@@ -210,9 +212,9 @@ class TimeRangeValidatorTest {
         @Test @DisplayName("mix of overnight + regular: regular ranges are still overlap-checked")
         void mixedRanges_regularStillChecked() {
             RouteTimeRangeRequest r1  = new RouteTimeRangeRequest(
-                    LocalTime.of(6, 0), LocalTime.of(7, 30), 30, false);
+                    LocalTime.of(6, 0), LocalTime.of(7, 30), 30, 8, false);
             RouteTimeRangeRequest r2  = new RouteTimeRangeRequest(
-                    LocalTime.of(7, 0), LocalTime.of(8, 0), 30, false); // overlaps r1
+                    LocalTime.of(7, 0), LocalTime.of(8, 0), 30, 8, false); // overlaps r1
             RouteTimeRangeRequest ov  = overnight(22, 2);
             List<RouteTimeRangeRequest> mixed = List.of(r1, r2, ov);
             assertThatThrownBy(() -> TimeRangeValidator.validate(mixed, CTX))

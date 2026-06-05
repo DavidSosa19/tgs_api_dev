@@ -55,8 +55,8 @@ class DurationResolverChainTest {
         chain = new CalendarOverrideDurationResolver(overrideService, seasonal);
     }
 
-    private DurationResolverContext ctx(LocalTime time, int baseDuration) {
-        return new DurationResolverContext(ROUTE, time, DATE, baseDuration, List.of());
+    private ScheduleResolverContext ctx(LocalTime time, int baseDuration) {
+        return new ScheduleResolverContext(ROUTE, time, DATE, baseDuration, 8, List.of());
     }
 
     // ── Priority: CalendarOverride > Seasonal ─────────────────────────────────
@@ -107,8 +107,8 @@ class DurationResolverChainTest {
 
             List<TimeRangeLookup> ranges = List.of(
                     lookup(LocalTime.of(6, 0), LocalTime.of(12, 0), 45));
-            DurationResolverContext ctx = new DurationResolverContext(
-                    ROUTE, LocalTime.of(8, 0), DATE, 30, ranges);
+            ScheduleResolverContext ctx = new ScheduleResolverContext(
+                    ROUTE, LocalTime.of(8, 0), DATE, 30, 8, ranges);
 
             assertThat(chain.resolve(ctx)).isEqualTo(45);
         }
@@ -136,8 +136,8 @@ class DurationResolverChainTest {
             // Range only covers 06:00–09:00; departure at 20:00 is outside
             List<TimeRangeLookup> ranges = List.of(
                     lookup(LocalTime.of(6, 0), LocalTime.of(9, 0), 120));
-            DurationResolverContext ctx = new DurationResolverContext(
-                    ROUTE, LocalTime.of(20, 0), DATE, 30, ranges);
+            ScheduleResolverContext ctx = new ScheduleResolverContext(
+                    ROUTE, LocalTime.of(20, 0), DATE, 30, 8, ranges);
 
             assertThat(chain.resolve(ctx)).isEqualTo(30);
         }

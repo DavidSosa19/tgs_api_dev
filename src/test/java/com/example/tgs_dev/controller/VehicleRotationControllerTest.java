@@ -31,7 +31,6 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -52,7 +51,7 @@ class VehicleRotationControllerTest {
     @Mock ConstraintMessageResolver constraintResolver;
 
     MockMvc mockMvc;
-    static final String BASE = "/api/rotation";
+    static final String BASE = "/api/rotations";
 
     @BeforeEach
     void setUp() {
@@ -125,7 +124,7 @@ class VehicleRotationControllerTest {
             Vehicle testVehicle = new Vehicle("V-1", null);
             testVehicle.setId(1);
             Route testRoute = new Route("");
-            ScheduleTemplate testTemplate = new ScheduleTemplate(testRoute, "T-1", "Template 1", LocalTime.of(6, 0));
+            ScheduleTemplate testTemplate = new ScheduleTemplate(testRoute, "T-1", "Template 1", 1);
             testTemplate.setId(1);
             when(rotationMapper.toEntity(any())).thenReturn(r);
             when(vehicleRotationService.save(r)).thenReturn(r);
@@ -167,7 +166,7 @@ class VehicleRotationControllerTest {
             Vehicle testVehicle = new Vehicle("V-1", null);
             testVehicle.setId(1);
             Route testRoute = new Route("");
-            ScheduleTemplate testTemplate = new ScheduleTemplate(testRoute, "T-1", "Template 1", LocalTime.of(6, 0));
+            ScheduleTemplate testTemplate = new ScheduleTemplate(testRoute, "T-1", "Template 1", 1);
             testTemplate.setId(1);
             when(vehicleRotationService.findById(1)).thenReturn(r);
             when(rotationEntryService.findByRotation(r)).thenReturn(existing);

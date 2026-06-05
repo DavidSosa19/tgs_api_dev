@@ -4,12 +4,12 @@ import com.example.tgs_dev.entity.Activatable;
 import com.example.tgs_dev.repository.filter.FilterRequest;
 import com.example.tgs_dev.repository.filter.GenericSpecification;
 import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.support.JpaEntityInformation;
 import org.springframework.data.jpa.repository.support.SimpleJpaRepository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.Serializable;
 import java.util.List;

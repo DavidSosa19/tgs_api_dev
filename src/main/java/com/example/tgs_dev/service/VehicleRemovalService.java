@@ -1,184 +1,111 @@
 package com.example.tgs_dev.service;
 
+import com.example.tgs_dev.controller.exception.BusinessException;
 import com.example.tgs_dev.controller.request.RemoveVehicleRequest;
-import com.example.tgs_dev.entity.*;
-import jakarta.transaction.Transactional;
+import com.example.tgs_dev.entity.RouteOperation;
+import com.example.tgs_dev.entity.VehicleAssignment;
+import com.example.tgs_dev.entity.enums.RemovalType;
+import com.example.tgs_dev.service.removal.RemovalContext;
+import com.example.tgs_dev.service.removal.RemovalOutcome;
+import com.example.tgs_dev.service.removal.VehicleRemovalStrategy;
+import com.example.tgs_dev.service.removal.VehicleRemovedEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.Comparator;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toUnmodifiableMap;
+
+/**
+ * Orchestrates vehicle removal by resolving the assignment, taking a
+ * pessimistic write lock on the parent {@link RouteOperation} (so concurrent
+ * removals serialise), and dispatching to the matching
+ * {@link VehicleRemovalStrategy}.
+ *
+ * <p>Owns no business logic — its responsibilities are:
+ * <ol>
+ *   <li>Tenant-scoped {@link VehicleAssignment} lookup.</li>
+ *   <li>{@code PESSIMISTIC_WRITE} lock on the parent {@link RouteOperation}.</li>
+ *   <li>{@link RemovalContext} construction (with a single {@code now}
+ *       timestamp reused by every strategy for consistent audit data).</li>
+ *   <li>Strategy dispatch (with explicit error when no strategy is registered).</li>
+ *   <li>Audit logging and {@link VehicleRemovedEvent} emission.</li>
+ * </ol>
+ *
+ * <h3>Adding a new removal mode</h3>
+ * Register a new {@link VehicleRemovalStrategy} Spring bean and add the
+ * corresponding value to {@link RemovalType}.  This service requires no
+ * changes.
+ */
 @Service
 public class VehicleRemovalService {
 
-    private final VehicleAssignmentService vehicleAssignmentService;
-    private final ScheduleService scheduleService;
-    private final RouteService routeService;
-    private final RouteOperationService routeOperationService;
+    private static final Logger log = LoggerFactory.getLogger(VehicleRemovalService.class);
 
-    public VehicleRemovalService(VehicleAssignmentService vehicleAssignmentService,
-                                 ScheduleService scheduleService,
-                                 RouteService routeService,
-                                 RouteOperationService routeOperationService) {
+    private final Map<RemovalType, VehicleRemovalStrategy> strategies;
+    private final VehicleAssignmentService                 vehicleAssignmentService;
+    private final RouteOperationService                    routeOperationService;
+    private final ApplicationEventPublisher                eventPublisher;
+
+    public VehicleRemovalService(List<VehicleRemovalStrategy> strategies,
+                                 VehicleAssignmentService vehicleAssignmentService,
+                                 RouteOperationService routeOperationService,
+                                 ApplicationEventPublisher eventPublisher) {
+        this.strategies               = strategies.stream()
+                .collect(toUnmodifiableMap(VehicleRemovalStrategy::supports, identity()));
         this.vehicleAssignmentService = vehicleAssignmentService;
-        this.scheduleService = scheduleService;
-        this.routeService = routeService;
-        this.routeOperationService = routeOperationService;
+        this.routeOperationService    = routeOperationService;
+        this.eventPublisher           = eventPublisher;
     }
 
     @Transactional
     public void handleRemoval(RemoveVehicleRequest request) {
-        VehicleAssignment assignment = vehicleAssignmentService.findById(request.vehicleAssignmentId())
-                .orElseThrow(() -> new NoSuchElementException("notFound.vehicleAssignment|" + request.vehicleAssignmentId()));
+        LocalDateTime now = LocalDateTime.now();
 
-        switch (request.removalType()) {
-            case REMOVE_ONLY -> removeOnly(assignment);
-            case REMOVE_RECALCULATE -> {
-                if (request.effectiveFrom() == null) {
-                    throw new IllegalArgumentException("effectiveFrom is required for REMOVE_RECALCULATE");
-                }
-                removeAndRecalculate(assignment, request.effectiveFrom());
-            }
-            case REMOVE_REPLACE -> removeAndReplace(assignment);
-        }
-    }
+        VehicleAssignment assignment = vehicleAssignmentService
+                .findById(request.vehicleAssignmentId())
+                .orElseThrow(() -> new NoSuchElementException(
+                        "notFound.vehicleAssignment|" + request.vehicleAssignmentId()));
 
-    /**
-     * Soft-delete the assignment without any schedule recalculation.
-     */
-    private void removeOnly(VehicleAssignment assignment) {
-        vehicleAssignmentService.softDelete(assignment);
-    }
+        // Pessimistic-lock the parent operation — concurrent removals on the
+        // same operation will serialise instead of racing.  Loaded only for
+        // its locking effect; the strategy continues to use the operation
+        // referenced by the assignment.
+        routeOperationService.findByIdForUpdate(assignment.getRouteOperation().getId());
 
-    /**
-     * Soft-delete the assignment and redistribute the departure times of all
-     * subsequent vehicles (rowOrder > removed) for schedules >= effectiveFrom.
-     * Algorithm:
-     *   T_removed = first departure time of the removed vehicle >= effectiveFrom
-     *   T_last    = first departure time of the last remaining vehicle >= effectiveFrom
-     *   interval  = (T_last - T_removed) / N_remaining
-     *   new base for vehicle at index i = T_removed + interval * (i+1)
-     */
-    private void removeAndRecalculate(VehicleAssignment toRemove, LocalTime effectiveFrom) {
-        RouteOperation routeOperation = toRemove.getRouteOperation();
-        int removedRowOrder = toRemove.getRowOrder();
-
-        // Load remaining assignments sorted by rowOrder BEFORE soft-delete
-        List<VehicleAssignment> remaining = vehicleAssignmentService
-                .findByRouteOperationAndRowOrderGreaterThan(routeOperation, removedRowOrder)
-                .stream()
-                .sorted(Comparator.comparing(VehicleAssignment::getRowOrder))
-                .toList();
-
-        if (remaining.isEmpty()) {
-            vehicleAssignmentService.softDelete(toRemove);
-            return;
+        VehicleRemovalStrategy strategy = strategies.get(request.removalType());
+        if (strategy == null) {
+            throw new BusinessException("unsupported.removalType|" + request.removalType());
         }
 
-        // Load schedules BEFORE soft-delete — @SQLRestriction on VehicleAssignment
-        // would filter them out via JOIN after the assignment is deactivated
-        List<Schedule> removedSchedules = scheduleService
-                .findAllByAssignment(List.of(toRemove.getId()))
-                .stream()
-                .filter(s -> !s.getDepartureTime().isBefore(effectiveFrom))
-                .sorted(Comparator.comparing(Schedule::getDepartureTime))
-                .toList();
+        log.info("Vehicle removal requested: assignment={}, type={}, operation={}, fromTime={}",
+                 assignment.getId(), request.removalType(),
+                 assignment.getRouteOperation().getId(), request.fromTime());
 
-        List<Integer> remainingIds = remaining.stream().map(VehicleAssignment::getId).toList();
-        List<Schedule> allRemainingSchedules = scheduleService.findAllByAssignment(remainingIds);
+        RemovalOutcome outcome = strategy.execute(new RemovalContext(
+                assignment,
+                now,
+                request.fromTime(),
+                request.recalculationScope(),
+                request.windowSize(),
+                request.sourceRouteGroupId()
+        ));
 
-        if (removedSchedules.isEmpty()) {
-            vehicleAssignmentService.softDelete(toRemove);
-            return;
-        }
-
-        LocalTime tRemoved = removedSchedules.getFirst().getDepartureTime();
-
-        VehicleAssignment lastVehicle = remaining.getLast();
-        LocalTime tLast = allRemainingSchedules.stream()
-                .filter(s -> s.getVehicleAssignment().getId().equals(lastVehicle.getId()))
-                .map(Schedule::getDepartureTime)
-                .filter(departureTime -> !departureTime.isBefore(effectiveFrom))
-                .min(Comparator.naturalOrder())
-                .orElse(null);
-
-        if (tLast == null) {
-            vehicleAssignmentService.softDelete(toRemove);
-            return;
-        }
-
-        long intervalMinutes = Duration.between(tRemoved, tLast).toMinutes() / remaining.size();
-
-        // Soft-delete AFTER loading all data
-        vehicleAssignmentService.softDelete(toRemove);
-
-        // Redistribute departure times for remaining vehicles
-        List<Schedule> toUpdate = new ArrayList<>();
-        for (int i = 0; i < remaining.size(); i++) {
-            VehicleAssignment va = remaining.get(i);
-            LocalTime newBase = tRemoved.plusMinutes(intervalMinutes * (i + 1));
-
-            List<Schedule> vehicleSchedules = allRemainingSchedules.stream()
-                    .filter(s -> s.getVehicleAssignment().getId().equals(va.getId()))
-                    .filter(s -> !s.getDepartureTime().isBefore(effectiveFrom))
-                    .sorted(Comparator.comparing(Schedule::getDepartureTime))
-                    .toList();
-
-            if (vehicleSchedules.isEmpty()) continue;
-
-            LocalTime oldBase = vehicleSchedules.getFirst().getDepartureTime();
-            long shiftMinutes = Duration.between(oldBase, newBase).toMinutes();
-
-            vehicleSchedules.forEach(s -> {
-                s.setDepartureTime(s.getDepartureTime().plusMinutes(shiftMinutes));
-                toUpdate.add(s);
-            });
-        }
-
-        scheduleService.saveAll(toUpdate);
-    }
-
-    /**
-     * Soft-delete the assignment and replace it with the last vehicle from route 3's
-     * operation on the same date, generating schedules using the removed vehicle's template.
-     */
-    private void removeAndReplace(VehicleAssignment toRemove) {
-        RouteOperation routeOperation = toRemove.getRouteOperation();
-        LocalDate serviceDate = routeOperation.getServiceDate();
-
-        Route route3 = routeService.findByNumber("3")
-                .orElseThrow(() -> new NoSuchElementException("notFound.route|3"));
-
-        RouteOperation route3Operation = routeOperationService
-                .findByRouteAndDate(route3, serviceDate)
-                .orElseThrow(() -> new NoSuchElementException("notFound.routeOperation.route3|" + serviceDate));
-
-        VehicleAssignment lastRoute3Assignment = vehicleAssignmentService
-                .findLastByRouteOperation(route3Operation)
-                .orElseThrow(() -> new NoSuchElementException("notFound.vehicleAssignment.route3"));
-
-        // Build replacement assignment with the loaned vehicle
-        VehicleAssignment replacement = new VehicleAssignment(
-                routeOperation,
-                lastRoute3Assignment.getVehicle(),
-                toRemove.getScheduleTemplate(),
-                toRemove.getRowOrder()
-        );
-        replacement.setOrigin("REPLACEMENT");
-        replacement.setReplacesId(toRemove.getId().longValue());
-
-        VehicleAssignment savedReplacement = vehicleAssignmentService.save(replacement);
-
-        // Generate schedules for the replacement vehicle
-        scheduleService.calculateVehicleSchedules(List.of(savedReplacement));
-
-        // Soft-delete the original and the route-3 assignment
-        vehicleAssignmentService.softDeleteWithReason(toRemove, "REPLACED");
-        vehicleAssignmentService.softDeleteWithReason(lastRoute3Assignment, "LOANED");
+        eventPublisher.publishEvent(new VehicleRemovedEvent(
+                assignment.getCompany() != null ? assignment.getCompany().getId() : null,
+                assignment.getId(),
+                assignment.getRouteOperation().getId(),
+                assignment.getVehicle() != null ? assignment.getVehicle().getId() : null,
+                request.removalType(),
+                outcome.replacementAssignmentId(),
+                now
+        ));
     }
 }

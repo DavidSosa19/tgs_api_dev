@@ -41,7 +41,8 @@ public class ConstraintMessageResolver {
     private static final Map<String, String> MESSAGES = Map.ofEntries(
 
         // ── Unique constraints ────────────────────────────────────────────────
-        Map.entry("schedule_template_template_number_key", "dup.templateNumber"),
+        Map.entry("schedule_template_template_number_key",       "dup.templateNumber"),
+        Map.entry("uq_schedule_template_route_current_order",    "dup.sequenceOrder"),
         Map.entry("vehicle_vehicle_number_key",            "dup.vehicleNumber"),
         Map.entry("route_route_number_key",                "dup.routeNumber"),
         Map.entry("person_document_number_key",            "dup.documentNumber"),

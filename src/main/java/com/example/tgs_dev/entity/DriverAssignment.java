@@ -17,7 +17,7 @@ public class DriverAssignment extends BaseAudit{
     @Column(name="id")
     private Integer id;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
 

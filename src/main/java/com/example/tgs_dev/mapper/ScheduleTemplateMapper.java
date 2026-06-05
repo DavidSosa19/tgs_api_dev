@@ -21,7 +21,7 @@ public class ScheduleTemplateMapper {
                 template.getTemplateNumber(),
                 template.getName(),
                 template.getActive(),
-                template.getStartTime(),
+                template.getSequenceOrder(),
                 routeMapper.toDTO(template.getRoute()),
                 routeMapper.toDTO(template.getSecondaryRoute())
         );
@@ -36,7 +36,7 @@ public class ScheduleTemplateMapper {
                              com.example.tgs_dev.entity.Route secondaryRoute) {
         template.setTemplateNumber(request.templateNumber());
         template.setName(request.name());
-        template.setStartTime(request.startTime());
+        template.setSequenceOrder(request.sequenceOrder());
         template.setRoute(route);
         template.setSecondaryRoute(secondaryRoute);
         if (request.active() != null) {

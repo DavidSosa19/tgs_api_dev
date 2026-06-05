@@ -15,7 +15,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.data.jpa.domain.Specification;
 
-import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -51,7 +50,7 @@ class VehicleAssignmentServiceTest {
         Route route = route(1, "1");
         op       = operation(1, route, OP_DATE);
         vehicle  = vehicle(10, "V-001");
-        template = template(100, route, LocalTime.of(6, 0));
+        template = template(100, route, 1);
         lenient().when(tenantService.currentCompanyId()).thenReturn(COMPANY_ID);
         lenient().when(tenantService.currentCompany()).thenReturn(COMPANY);
     }

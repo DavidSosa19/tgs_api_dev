@@ -19,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 
 /**
@@ -43,6 +42,8 @@ import java.util.Optional;
  */
 @Service
 public class PersonService {
+
+    private static final String NOT_FOUND = "notFound.person|";
 
     private final PersonRepository      personRepository;
     private final PersonGroupRepository personGroupRepository;
@@ -72,7 +73,7 @@ public class PersonService {
     public Person findByGroupId(Long groupId) {
         return personRepository
                 .findCurrentByGroupId(groupId, tenantService.currentCompanyId())
-                .orElseThrow(() -> new ResourceNotFoundException("notFound.person|" + groupId));
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND + groupId));
     }
 
     /**
@@ -97,7 +98,7 @@ public class PersonService {
                 Specification.<Person>where(CommonSpecifications.fieldEquals("id", id))
                         .and(TenantSpecifications.belongsToCompany(companyId))
                         .and(TenantSpecifications.isActive())
-        ).orElseThrow(() -> new ResourceNotFoundException("notFound.person|" + id));
+        ).orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND + id));
     }
 
     @Transactional(readOnly = true)
@@ -151,7 +152,7 @@ public class PersonService {
         Integer companyId = tenantService.currentCompanyId();
         Person current = personRepository
                 .findCurrentByGroupId(groupId, companyId)
-                .orElseThrow(() -> new ResourceNotFoundException("notFound.person|" + groupId));
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND + groupId));
 
         // Close current version
         LocalDateTime now = LocalDateTime.now();
@@ -184,7 +185,7 @@ public class PersonService {
         Integer companyId = tenantService.currentCompanyId();
         Person current = personRepository
                 .findCurrentByGroupId(groupId, companyId)
-                .orElseThrow(() -> new ResourceNotFoundException("notFound.person|" + groupId));
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND + groupId));
 
         if (vehicleRepository.existsByOwnerIdAndActiveTrue(current.getId())) {
             throw new BusinessException("fk.personIsVehicleOwner");
@@ -204,7 +205,7 @@ public class PersonService {
         Integer companyId = tenantService.currentCompanyId();
         Person last = personRepository
                 .findCurrentByGroupId(groupId, companyId)
-                .orElseThrow(() -> new ResourceNotFoundException("notFound.person|" + groupId));
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND + groupId));
 
         // Close the deactivated version
         LocalDateTime now = LocalDateTime.now();

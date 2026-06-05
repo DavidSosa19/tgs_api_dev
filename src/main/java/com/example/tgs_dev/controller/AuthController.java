@@ -11,6 +11,7 @@ import com.example.tgs_dev.entity.User;
 import com.example.tgs_dev.mapper.UserContextMapper;
 import com.example.tgs_dev.mapper.UserMapper;
 import com.example.tgs_dev.security.JwtService;
+import com.example.tgs_dev.security.Permissions;
 import com.example.tgs_dev.service.UserService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -19,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -75,7 +77,14 @@ public class AuthController {
         }
     }
 
+    /**
+     * User provisioning. Anonymous self-signup is forbidden — only super-admins
+     * can create users. This guard prevents IDOR via attacker-supplied
+     * {@code companyId}. For the operational user-management UI, prefer
+     * {@code POST /api/admin/users}.
+     */
     @PostMapping("/register")
+    @PreAuthorize("hasAuthority('" + Permissions.ADMIN_USER_WRITE + "')")
     public ResponseEntity<ApiResponse<UserDTO>> register(@RequestBody @Valid RegisterRequest request) {
         User newUser = userService.signUpUser(request);
         return ResponseEntity.status(HttpStatus.CREATED)

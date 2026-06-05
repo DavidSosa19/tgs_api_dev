@@ -37,7 +37,7 @@ class SeasonalPatternControllerTest {
     MockMvc mockMvc;
 
     private static final int    ROUTE_ID = 10;
-    private static final String BASE     = "/api/route/10/seasonal-patterns";
+    private static final String BASE     = "/api/routes/10/seasonal-patterns";
 
     private static final LocalDate FROM = LocalDate.of(2024, 6,  1);
     private static final LocalDate TO   = LocalDate.of(2024, 8, 31);

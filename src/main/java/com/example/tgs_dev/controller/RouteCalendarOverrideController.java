@@ -23,7 +23,7 @@ import java.util.List;
  * <p>Base path: {@code /api/route/{routeId}/overrides}
  */
 @RestController
-@RequestMapping("/api/route/{routeId}/overrides")
+@RequestMapping("/api/routes/{routeId}/overrides")
 @RequiredArgsConstructor
 public class RouteCalendarOverrideController {
 
@@ -88,6 +88,7 @@ public class RouteCalendarOverrideController {
                 r.getRangeStart(),
                 r.getRangeEnd(),
                 r.getDurationMinutes(),
+                0,   // calendar overrides do not carry headway config
                 r.getSortOrder(),
                 r.isCrossesMidnight());
     }

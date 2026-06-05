@@ -7,6 +7,16 @@ import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
 
+/**
+ * A vehicle scheduled to perform a route operation.
+ *
+ * <h3>Active filter</h3>
+ * <p>The {@code @SQLRestriction("active = true")} is applied to all
+ * Hibernate-generated queries (JPQL, Criteria, lazy loads).  Native SQL queries
+ * bypass it — used by audit / history endpoints that need to surface inactive
+ * (removed) assignments for visual integrity.  See
+ * {@code VehicleAssignmentRepository.findAllByOperationIncludingInactive}.
+ */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,11 +26,12 @@ import java.time.LocalDateTime;
 public class VehicleAssignment extends BaseAudit implements Activatable {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "vehicle_assignment_id_seq")
+    @SequenceGenerator(name = "vehicle_assignment_id_seq", sequenceName = "core.vehicle_assignment_id_seq", allocationSize = 50)
     @Column(name="id")
     private Integer id;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
 

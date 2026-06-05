@@ -7,6 +7,7 @@ public record RouteTimeRangeDTO(
         LocalTime rangeStart,
         LocalTime rangeEnd,
         int       durationMinutes,
+        int       headwayMinutes,
         int       sortOrder,
         boolean   crossesMidnight
 ) {}

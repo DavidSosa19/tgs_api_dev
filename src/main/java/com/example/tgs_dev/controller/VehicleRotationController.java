@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/rotation")
+@RequestMapping("/api/rotations")
 @RequiredArgsConstructor
 public class VehicleRotationController {
 
